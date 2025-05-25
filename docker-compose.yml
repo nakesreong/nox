@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: iskra_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1 # или 'all' если хочешь отдать все GPU
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  homeassistant:
+    image: homeassistant/home-assistant:stable # Используем стабильную версию HA
+    container_name: iskra_homeassistant
+    ports:
+      - "8123:8123" # Порт для веб-интерфейса HA
+    volumes:
+      - ./homeassistant_config:/config # Проброс директории для конфигурации HA
+      - /etc/localtime:/etc/localtime:ro # Синхронизация времени с хостом (важно для автоматизаций)
+    privileged: true # Иногда требуется для доступа к некоторым устройствам, но можно попробовать и без, если не заработает
+                     # или заменить на проброс конкретных устройств, если знаем каких. Для начала можно так.
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+  homeassistant_config: # Docker сам создаст этот именованный том, если директории ./homeassistant_config не будет
+                        # Для большей предсказуемости, как и с ollama_data, лучше создать папку ./homeassistant_config вручную
