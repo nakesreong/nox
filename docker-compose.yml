@@ -5,7 +5,7 @@ services:
     image: ollama/ollama:latest
     container_name: iskra_ollama
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ./ollama_data:/root/.ollama
     deploy:
@@ -21,7 +21,7 @@ services:
     image: homeassistant/home-assistant:stable # Используем стабильную версию HA
     container_name: iskra_homeassistant
     ports:
-      - "8123:8123" # Порт для веб-интерфейса HA
+      - "127.0.0.1:8123:8123" # Порт для веб-интерфейса HA
     volumes:
       - ./homeassistant_config:/config # Проброс директории для конфигурации HA
       - /etc/localtime:/etc/localtime:ro # Синхронизация времени с хостом (важно для автоматизаций)
