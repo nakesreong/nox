@@ -133,4 +133,6 @@ dmypy.json
 # Docker
 ollama_data/
 homeassistant_config/
+
 configs/settings.yaml
+configs/
