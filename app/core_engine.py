@@ -1,10 +1,10 @@
 # app/core_engine.py
 
-import yaml # <--- ДОБАВЛЕНО: Импорт библиотеки PyYAML
+import yaml 
 import os
 
 # Используем относительный импорт, так как nlu_engine.py в том же пакете 'app'
-from . import nlu_engine # <--- ИЗМЕНЕНО: Относительный импорт
+from . import nlu_engine 
 
 class CoreEngine:
     def __init__(self):
@@ -13,121 +13,99 @@ class CoreEngine:
         Загружает конфигурацию для NLU движка.
         """
         print("Инициализация Core Engine...")
-        self.config_data = nlu_engine.load_config()
-        
-        if self.config_data:
-            print("CoreEngine: Конфигурация для NLU успешно загружена.")
+        # nlu_engine.load_config() должен быть уже вызван или его результат доступен,
+        # либо nlu_engine должен сам обрабатывать загрузку конфига при вызове его функций.
+        # В нашей последней версии nlu_engine.py, CONFIG_DATA и LLM_INSTRUCTIONS 
+        # загружаются при импорте самого модуля nlu_engine.
+        # Проверим, что они действительно загрузились.
+        if nlu_engine.CONFIG_DATA and nlu_engine.LLM_INSTRUCTIONS:
+            self.config_data = nlu_engine.CONFIG_DATA # Сохраняем для возможного использования
+            print("CoreEngine: Конфигурация и инструкции для NLU успешно распознаны из nlu_engine.")
         else:
-            print("Ошибка CoreEngine: Не удалось загрузить конфигурацию для NLU.")
+            self.config_data = None # Указываем, что конфиг не загружен
+            print("Ошибка CoreEngine: Не удалось получить конфигурацию или инструкции из nlu_engine.")
         
         print("Core Engine инициализирован.")
 
     def process_user_command(self, user_command_text: str):
         """
         Обрабатывает текстовую команду пользователя.
+        1. Получает структурированный NLU-ответ (JSON-совместимый словарь) от nlu_engine.
+        2. (В будущем) Вызывает диспетчер для выполнения действия.
+        3. (В будущем) Формирует человекопонятный ответ.
+        Пока просто возвращает результат NLU для тестирования.
         """
-        # ... (остальная часть метода process_user_command остается такой же, как в v4,
-        # где мы уже добавили парсинг JSON с помощью yaml.safe_load) ...
-        # Убедись, что ты скопировала оттуда всю актуальную логику process_user_command
-        # из моего предыдущего сообщения про "generate_upgrade_filters_v4.yml"
-        # (там, где мы исправляли "placeholder_intent")
-        # Для краткости я не буду ее здесь повторять, но она должна быть там.
-        # Главное, что мы теперь правильно импортировали nlu_engine и yaml.
-
-        # --- НАЧАЛО КОДА ИЗ ПРЕДЫДУЩЕЙ ВЕРСИИ (v4, адаптированный) ---
-        if not self.config_data:
-            print("Ошибка CoreEngine: Конфигурация не загружена, NLU недоступен.")
-            return {"error": "NLU configuration not available"}
+        if not self.config_data: # Проверяем, был ли успешно загружен конфиг при инициализации
+            error_msg = "Ошибка CoreEngine: Конфигурация NLU не была загружена при инициализации."
+            print(error_msg)
+            return {"error": error_msg, "intent": "config_error", "entities": {}}
 
         print(f"\nCoreEngine: Получена команда от пользователя: '{user_command_text}'")
 
-        intent = "unknown_intent"
-        entities = {}
-        raw_llm_response_for_nlu = None
+        # Вызываем функцию из nlu_engine, которая возвращает уже распарсенный JSON (словарь)
+        # или словарь с информацией об ошибке.
+        structured_nlu_result = nlu_engine.get_structured_nlu_from_text(user_command_text)
+        
+        print(f"CoreEngine: Результат от NLU Engine (структурированный): {structured_nlu_result}")
 
-        try:
-            nlu_prompt = f"Проанализируй следующую фразу пользователя и извлеки из нее основное намерение (интент) и ключевые параметры (сущности). Ответь только в формате JSON (например, {{'intent': 'имя_интента', 'entities': {{'параметр': 'значение'}}}}), и ничего больше, без пояснений: \"{user_command_text}\""
+        if structured_nlu_result and not structured_nlu_result.get("error"):
+            intent = structured_nlu_result.get("intent", "unknown_intent_from_core")
+            entities = structured_nlu_result.get("entities", {})
+            print(f"CoreEngine: Распознан интент: {intent}, Сущности: {entities}")
             
-            raw_llm_response_for_nlu = nlu_engine.get_ollama_response(nlu_prompt, self.config_data)
-            print(f"CoreEngine: Сырой ответ от LLM для NLU: {raw_llm_response_for_nlu}")
+            # --- Здесь в будущем будет вызов dispatcher.dispatch(intent, entities) ---
+            # --- и получение результата от action_handler ---
+            # --- и затем генерация ответа для пользователя через nlu_engine.generate_response() ---
 
-            if raw_llm_response_for_nlu:
-                try:
-                    clean_response = raw_llm_response_for_nlu.strip()
-                    if clean_response.startswith("```json"):
-                        clean_response = clean_response[7:]
-                    if clean_response.startswith("```"):
-                        clean_response = clean_response[3:]
-                    if clean_response.endswith("```"):
-                        clean_response = clean_response[:-3]
-                    clean_response = clean_response.strip()
-
-                    nlu_data = yaml.safe_load(clean_response) 
-
-                    if isinstance(nlu_data, dict):
-                        intent = nlu_data.get("intent", "unknown_intent_after_parse")
-                        entities = nlu_data.get("entities", {})
-                        print(f"CoreEngine: Успешно распарсен JSON. Интент: {intent}, Сущности: {entities}")
-                    else:
-                        print(f"CoreEngine: Ошибка парсинга JSON - результат не словарь: {nlu_data}")
-                        entities = {"parsing_error": "Result is not a dictionary", "raw_response": raw_llm_response_for_nlu}
-                except (yaml.YAMLError, TypeError, AttributeError) as json_e:
-                    print(f"CoreEngine: Ошибка при парсинге JSON из ответа LLM: {json_e}")
-                    entities = {"parsing_error": str(json_e), "raw_response": raw_llm_response_for_nlu}
-            else:
-                print("CoreEngine: Получен пустой ответ от LLM для NLU.")
-
-            if intent != "unknown_intent" and intent != "unknown_intent_after_parse":
-                response_text = f"Я (CoreEngine) понял, что ты хочешь '{intent}'"
-                if entities and not entities.get("parsing_error"):
-                    user_friendly_entities = {k: v for k, v in entities.items() if k != "raw_response"}
-                    if user_friendly_entities:
-                         response_text += f" с параметрами: {user_friendly_entities}."
-                    else:
-                        response_text += "."
-                else:
-                    response_text += "."
-            elif "parsing_error" in entities:
-                 response_text = "Извини, я получил ответ, но не смог его правильно понять. Попробуешь переформулировать?"
-            else:
-                response_text = "Извини, я не совсем понял твой запрос. Можешь сказать иначе?"
+            # Пока просто возвращаем то, что получили от NLU, чтобы бот это показал
+            return structured_nlu_result 
+        else:
+            # Если nlu_engine вернул ошибку или пустой результат
+            error_detail = "Неизвестная ошибка NLU"
+            if structured_nlu_result and structured_nlu_result.get("error"):
+                error_detail = structured_nlu_result.get("error")
+            elif structured_nlu_result and structured_nlu_result.get("raw_response"):
+                 error_detail = f"Проблема с ответом LLM: {structured_nlu_result['raw_response'][:100]}..." # Показываем часть сырого ответа
             
-            return {"response": response_text, "intent": intent, "entities": entities, "raw_nlu_response": raw_llm_response_for_nlu}
-
-        except Exception as e:
-            print(f"CoreEngine: Ошибка при обработке команды: {e}")
-            return {"response": f"Произошла внутренняя ошибка: {e}", "error_details": str(e)}
-        # --- КОНЕЦ КОДА ИЗ ПРЕДЫДУЩЕЙ ВЕРСИИ ---
-
+            print(f"CoreEngine: Ошибка от NLU Engine или пустой/некорректный результат: {structured_nlu_result}")
+            return {"error": f"Ошибка обработки NLU: {error_detail}", "intent": "nlu_processing_error", "entities": {}}
 
 # --- Тестовый блок для проверки core_engine ---
+# Этот блок полезен для быстрой проверки самого core_engine,
+# но основное тестирование мы будем делать через telegram_bot.
 if __name__ == "__main__":
-    print("Запуск тестового скрипта Core Engine...")
+    print("Запуск тестового скрипта Core Engine (v_full)...")
+    
+    # Предполагается, что nlu_engine.py и все конфиги находятся
+    # в правильных относительных путях, когда скрипт запускается из корня проекта:
+    # python3 app/core_engine.py
     try:
-        # Когда мы запускаем python3 app/core_engine.py из корня проекта,
-        # Python добавляет корень проекта в sys.path, и импорт nlu_engine в app/core_engine.py
-        # должен работать как `from . import nlu_engine` или `import app.nlu_engine`
-        # (если мы запускаем модуль app как пакет).
-        # Но для простого запуска `python3 app/core_engine.py` относительный импорт `from . import nlu_engine`
-        # в самом `core_engine.py` является правильным, так как оба файла в пакете `app`.
-        engine = CoreEngine()
+        engine = CoreEngine() 
         
-        if engine.config_data:
+        if engine.config_data: # Проверяем, что конфигурация загружена в CoreEngine
             test_commands = [
                 "Привет, Обсидиан!",
                 "включи свет на кухне",
-                "какая погода в Киеве?"
+                "какая погода в Киеве?",
+                "свет на 20 %"
             ]
 
             for command in test_commands:
+                print(f"\n--- CoreEngine Test: Команда: '{command}' ---")
                 result = engine.process_user_command(command)
-                print(f"CoreEngine: Финальный ответ для пользователя (имитация): {result.get('response')}")
-                print(f"CoreEngine:   -> Распознанный интент: {result.get('intent')}")
-                print(f"CoreEngine:   -> Распознанные сущности: {result.get('entities')}\n")
+                print(f"CoreEngine: Финальный результат для интерфейса: {result}")
+                if result and not result.get("error"):
+                     print(f"  -> Интент: {result.get('intent')}")
+                     print(f"  -> Сущности: {result.get('entities')}")
+                else:
+                    print(f"  -> Ошибка: {result.get('error')}")
+
         else:
-            print("Тестовый скрипт Core Engine: Конфигурация не была загружена. Проверьте настройки.")
+            print("Тестовый скрипт Core Engine: Конфигурация NLU не была загружена в CoreEngine. Проверьте nlu_engine.py и пути к конфигам.")
 
     except Exception as e:
         print(f"Критическая ошибка в тестовом скрипте Core Engine: {e}")
+        import traceback
+        traceback.print_exc()
     
-    print("Завершение тестового скрипта Core Engine.")
+    print("\nЗавершение тестового скрипта Core Engine (v_full).")
