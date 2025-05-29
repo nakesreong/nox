@@ -38,31 +38,30 @@ This project is an exploration of what's possible with modern AI tools, local LL
 ## 📁 Project Structure (Key Files)
 
 nox/
-├── .git/
-├── app/                    # Core application logic
-│   ├── init.py
-│   ├── core_engine.py      # Main engine for command processing
-│   ├── nlu_engine.py       # NLU and Response Generation with Ollama
-│   ├── dispatcher.py       # Routes intents to appropriate handlers
-│   ├── intent_handlers/    # Modules for handling specific intents
-│   │   ├── init.py
-│   │   ├── device_control_handler.py
-│   │   └── fallback_handler.py
-│   └── actions/            # Modules for performing real-world actions
-│       ├── init.py
-│       ├── light_actions.py
-│       └── scene_actions.py  # (Currently placeholder/less developed)
-├── interfaces/             # Communication interfaces
-│   ├── init.py
-│   └── telegram_bot.py   # Telegram bot implementation
-├── configs/                # Configuration files
-│   ├── init.py
-│   ├── settings.yaml       # Main settings (tokens, URLs) - IN .GITIGNORE
-│   └── llm_instructions.yaml # Instructions for NLU and Response Generation
 ├── .gitignore
-├── requirements.txt        # Python dependencies
-├── README.md               # This file
-└── docker-compose.yml      # Docker setup for Ollama & Home Assistant
+├── README.md
+├── app/
+│   ├── init.py
+│   ├── core_engine.py
+│   ├── dispatcher.py
+│   ├── nlu_engine.py
+│   ├── actions/
+│   │   ├── init.py
+│   │   ├── light_actions.py
+│   │   └── scene_actions.py
+│   └── intent_handlers/
+│       ├── init.py
+│       ├── device_control_handler.py
+│       └── fallback_handler.py
+├── configs/
+│   ├── init.py
+│   ├── llm_instructions.yaml
+│   └── settings.yaml
+├── docker-compose.yml
+├── interfaces/
+│   ├── init.py
+│   └── telegram_bot.py
+└── requirements.txt
 
 
 ## 🚀 Getting Started
