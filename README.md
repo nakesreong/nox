@@ -37,32 +37,31 @@ This project is an exploration of what's possible with modern AI tools, local LL
 
 ## 📁 Project Structure (Key Files)
 
-nox/
-├── .gitignore
-├── README.md
-├── app/
-│   ├── init.py
-│   ├── core_engine.py
-│   ├── dispatcher.py
-│   ├── nlu_engine.py
-│   ├── actions/
-│   │   ├── init.py
-│   │   ├── light_actions.py
-│   │   └── scene_actions.py
-│   └── intent_handlers/
-│       ├── init.py
-│       ├── device_control_handler.py
-│       └── fallback_handler.py
-├── configs/
-│   ├── init.py
-│   ├── llm_instructions.yaml
-│   └── settings.yaml
-├── docker-compose.yml
-├── interfaces/
-│   ├── init.py
-│   └── telegram_bot.py
-└── requirements.txt
-
+    nox/
+    ├── .gitignore
+    ├── README.md
+    ├── app/
+    │   ├── __init__.py
+    │   ├── core_engine.py
+    │   ├── dispatcher.py
+    │   ├── nlu_engine.py
+    │   ├── actions/
+    │   │   ├── __init__.py
+    │   │   ├── light_actions.py
+    │   │   └── scene_actions.py
+    │   └── intent_handlers/
+    │       ├── __init__.py
+    │       ├── device_control_handler.py
+    │       └── fallback_handler.py
+    ├── configs/
+    │   ├── __init__.py
+    │   ├── llm_instructions.yaml
+    │   └── settings.yaml
+    ├── docker-compose.yml
+    ├── interfaces/
+    │   ├── __init__.py
+    │   └── telegram_bot.py
+    └── requirements.txt
 
 ## 🚀 Getting Started
 
