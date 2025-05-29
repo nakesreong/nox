@@ -3,11 +3,30 @@
 import yaml
 import requests
 import os
-import json 
+import json
+from typing import Optional, Any, Dict 
+from pydantic import BaseModel, ValidationError
 
-# --- Загрузка конфигурации и инструкций для LLM ---
+# --- Pydantic Models for NLU JSON Validation ---
+class EntitiesModel(BaseModel):
+    target_device: Optional[str] = None
+    action: Optional[str] = None
+    location: Optional[str] = None
+    # Specific fields for light settings, used with action: "setting"
+    brightness_pct: Optional[int] = None       # For brightness percentage (0-100)
+    color_temp_qualitative: Optional[str] = None # For "warm", "cool", "natural"
+    color_temp_kelvin: Optional[int] = None    # For specific Kelvin values
+    # Generic value, can be used if no specific field above applies,
+    # or for simple qualitative temperature if action is set_color_temperature (legacy, try to avoid)
+    value: Optional[Any] = None 
+
+class NluResponseModel(BaseModel):
+    intent: str 
+    entities: Optional[EntitiesModel] = None
+
+# --- Configuration and LLM Instructions Loading ---
 CONFIG_DATA = None
-LLM_INSTRUCTIONS_DATA = None # Теперь это будет словарь со всеми инструкциями
+LLM_INSTRUCTIONS_DATA = None
 
 try:
     current_dir_nlu = os.path.dirname(os.path.abspath(__file__))
@@ -17,42 +36,37 @@ try:
     with open(config_path_nlu, 'r', encoding='utf-8') as f:
         CONFIG_DATA = yaml.safe_load(f)
     if not CONFIG_DATA or 'ollama' not in CONFIG_DATA:
-        raise ValueError("Секция 'ollama' не найдена в configs/settings.yaml")
-    print("NLU_Engine: Основная конфигурация (settings.yaml) успешно загружена.")
+        raise ValueError("Section 'ollama' not found in configs/settings.yaml")
+    print("NLU_Engine: Main configuration (settings.yaml) loaded successfully.")
 
     instructions_path_nlu = os.path.join(project_root_nlu, 'configs', 'llm_instructions.yaml')
     with open(instructions_path_nlu, 'r', encoding='utf-8') as f:
         LLM_INSTRUCTIONS_DATA = yaml.safe_load(f) 
+    
     if not LLM_INSTRUCTIONS_DATA or \
        'intent_extraction_instruction' not in LLM_INSTRUCTIONS_DATA or \
-       'response_generation_instruction_simple' not in LLM_INSTRUCTIONS_DATA: # Проверяем новый ключ
-        raise ValueError("Ключи 'intent_extraction_instruction' или 'response_generation_instruction_simple' не найдены в configs/llm_instructions.yaml")
-    print("NLU_Engine: Инструкции для LLM (llm_instructions.yaml) успешно загружены.")
+       'response_generation_instruction_simple' not in LLM_INSTRUCTIONS_DATA:
+        raise ValueError("Key instructions ('intent_extraction_instruction' or 'response_generation_instruction_simple') not found in configs/llm_instructions.yaml")
+    print("NLU_Engine: LLM instructions (llm_instructions.yaml) loaded successfully.")
 
 except FileNotFoundError as fnf_err:
-    print(f"Ошибка NLU_Engine: Файл конфигурации или инструкций не найден: {fnf_err}")
+    print(f"NLU_Engine Error: Configuration or instructions file not found: {fnf_err}")
     CONFIG_DATA = None 
     LLM_INSTRUCTIONS_DATA = None
 except (yaml.YAMLError, ValueError) as val_yaml_err:
-    print(f"Ошибка NLU_Engine: Ошибка в файле конфигурации или инструкций: {val_yaml_err}")
+    print(f"NLU_Engine Error: Error in configuration or instructions file: {val_yaml_err}")
     CONFIG_DATA = None
     LLM_INSTRUCTIONS_DATA = None
 except Exception as e:
-    print(f"Ошибка NLU_Engine: Непредвиденная ошибка при загрузке конфигурации/инструкций: {e}")
+    print(f"NLU_Engine Error: Unexpected error during configuration/instructions loading: {e}")
     CONFIG_DATA = None
     LLM_INSTRUCTIONS_DATA = None
-# --- Конец загрузки ---
+# --- End of Loading ---
 
 
 def get_structured_nlu_from_text(user_text: str) -> dict:
-    """
-    Отправляет запрос к Ollama (используя /api/chat) с системной инструкцией 
-    (intent_extraction_instruction) и примерами для извлечения интента/сущностей.
-    Ожидает получить JSON-строку от LLM и пытается ее распарсить.
-    Возвращает словарь (распарсенный JSON) или словарь с ошибкой.
-    """
     if not CONFIG_DATA or not LLM_INSTRUCTIONS_DATA:
-        return {"error": "NLU_Engine: Конфигурация или инструкции LLM не загружены.", "intent": "config_error", "entities": {}}
+        return {"error": "NLU_Engine: LLM configuration or instructions not loaded.", "intent": "config_error", "entities": {}}
 
     ollama_url = CONFIG_DATA.get('ollama', {}).get('base_url')
     model_name = CONFIG_DATA.get('ollama', {}).get('default_model')
@@ -61,7 +75,7 @@ def get_structured_nlu_from_text(user_text: str) -> dict:
     examples = LLM_INSTRUCTIONS_DATA.get('examples', []) 
 
     if not ollama_url or not model_name or not intent_extraction_instruction:
-        return {"error": "NLU_Engine: URL Ollama, имя модели или инструкция для извлечения интента не найдены.", "intent": "config_error", "entities": {}}
+        return {"error": "NLU_Engine: Ollama URL, model name, or intent extraction instruction not found in config.", "intent": "config_error", "entities": {}}
 
     api_endpoint = f"{ollama_url}/api/chat"
     messages = []
@@ -83,7 +97,7 @@ def get_structured_nlu_from_text(user_text: str) -> dict:
     }
     headers = {"Content-Type": "application/json"}
 
-    print(f"NLU_Engine: Отправка NLU-запроса в Ollama (/api/chat) с моделью {model_name}.")
+    print(f"NLU_Engine: Sending NLU request to Ollama (/api/chat) with model {model_name}.")
     try:
         response = requests.post(api_endpoint, json=payload, headers=headers, timeout=120)
         response.raise_for_status()
@@ -91,7 +105,7 @@ def get_structured_nlu_from_text(user_text: str) -> dict:
 
         if response_data.get("message") and isinstance(response_data["message"], dict) and "content" in response_data["message"]:
             raw_json_string = response_data["message"]["content"]
-            print(f"NLU_Engine: Получена JSON-строка от LLM для NLU: {raw_json_string}")
+            print(f"NLU_Engine: Received JSON string from LLM for NLU: {raw_json_string}")
             try:
                 clean_json_string = raw_json_string.strip()
                 if clean_json_string.startswith("```json"):
@@ -102,66 +116,76 @@ def get_structured_nlu_from_text(user_text: str) -> dict:
                     clean_json_string = clean_json_string[:-3]
                 clean_json_string = clean_json_string.strip()
                 
-                parsed_json = json.loads(clean_json_string) 
-                print("NLU_Engine: JSON для NLU успешно распарсен.")
-                return parsed_json 
+                parsed_dict = json.loads(clean_json_string) 
+                
+                try:
+                    validated_nlu = NluResponseModel(**parsed_dict)
+                    print("NLU_Engine: NLU JSON successfully parsed and VALIDATED by Pydantic.")
+                    return validated_nlu.model_dump() 
+                except ValidationError as val_err:
+                    error_details_list = val_err.errors() 
+                    print(f"NLU_Engine Error: LLM JSON FAILED Pydantic validation: {error_details_list}")
+                    return {"error": "NLU JSON validation error", "details": error_details_list, "raw_response": raw_json_string, "intent": "nlu_validation_error", "entities": {}}
+
             except json.JSONDecodeError as json_err:
-                print(f"Ошибка NLU_Engine: Не удалось распарсить JSON из NLU-ответа LLM: {json_err}")
-                print(f"NLU_Engine: 'Сырая' NLU-строка была: {raw_json_string}")
-                return {"error": "NLU JSON parsing error", "raw_response": raw_json_string, "intent": "nlu_error", "entities": {}}
+                print(f"NLU_Engine Error: Failed to parse JSON from LLM NLU response: {json_err}")
+                print(f"NLU_Engine: Raw NLU string was: {raw_json_string}")
+                return {"error": "NLU JSON parsing error", "raw_response": raw_json_string, "intent": "nlu_parsing_error", "entities": {}}
         else:
-            print(f"Ошибка NLU_Engine: Неожиданный формат NLU-ответа от Ollama (/api/chat): {response_data}")
-            return {"error": "Unexpected NLU response format from Ollama", "raw_response": str(response_data), "intent": "nlu_error", "entities": {}}
+            print(f"NLU_Engine Error: Unexpected NLU response format from Ollama (/api/chat): {response_data}")
+            return {"error": "Unexpected NLU response format from Ollama", "raw_response": str(response_data), "intent": "nlu_ollama_error", "entities": {}}
 
     except requests.exceptions.RequestException as e:
-        return {"error": f"NLU_Engine Network error: {e}", "intent": "nlu_error", "entities": {}}
+        print(f"NLU_Engine Network Error: {e}")
+        return {"error": f"NLU_Engine Network error: {e}", "intent": "nlu_network_error", "entities": {}}
     except Exception as e:
-        return {"error": f"NLU_Engine Unexpected error: {e}", "intent": "nlu_error", "entities": {}}
-
+        print(f"NLU_Engine Unexpected Error: {e}")
+        import traceback
+        traceback.print_exc() 
+        return {"error": f"NLU_Engine Unexpected error: {e}", "intent": "nlu_unexpected_error", "entities": {}}
 
 def generate_natural_response(action_result: dict, user_query: str = None) -> str:
-    """
-    Генерирует человекопонятный ответ на основе результата действия и исходного запроса.
-    action_result: Словарь типа {"success": True/False, "message_for_user": "...", или "details_or_error": "..."}
-                   или результат от NLU, если действие не подразумевалось.
-    user_query: Исходный текстовый запрос пользователя (для контекста LLM)
-    Возвращает текстовый ответ для пользователя.
-    """
+    # This function remains the same as in your last working version.
+    # It uses 'response_generation_instruction_simple'.
     if not CONFIG_DATA or not LLM_INSTRUCTIONS_DATA:
-        print("Ошибка NLU_Engine (gen_resp): Конфигурация или инструкции LLM не загружены.")
-        return "Извини, мой внутренний модуль генерации ответов сейчас не доступен (нет конфига)."
+        print("NLU_Engine Error (gen_resp): LLM configuration or instructions not loaded.")
+        return "Sorry, my response generation module is currently unavailable (config missing)."
 
     ollama_url = CONFIG_DATA.get('ollama', {}).get('base_url')
     model_name = CONFIG_DATA.get('ollama', {}).get('default_model')
     
-    # Используем УПРОЩЕННУЮ инструкцию для генерации ответов
     response_gen_instruction = LLM_INSTRUCTIONS_DATA.get('response_generation_instruction_simple', "") 
     
     if not ollama_url or not model_name or not response_gen_instruction:
-        print("Ошибка NLU_Engine (gen_resp): URL, модель или инструкция для генерации ответа не найдены.")
-        return "Извини, я не могу сейчас сформулировать ответ (нет URL/модели/инструкции)."
+        print("NLU_Engine Error (gen_resp): Ollama URL, model, or response generation instruction not found.")
+        return "Sorry, I can't formulate a response right now (config issue)."
 
-    # Формируем контекст для LLM, который будет передан как "user" сообщение
-    # в дополнение к системной инструкции response_gen_instruction.
-    context_lines = ["Информация о результате для формирования ответа Искре:"]
-    if 'success' in action_result: # Если это результат выполнения действия
-        context_lines.append(f"- Успех: {action_result.get('success')}")
-        # Используем 'message_for_user' из handler-а, если он есть, как основные детали
-        # или 'details_or_error' или 'error' для большей информации
-        details = action_result.get('message_for_user', action_result.get('details_or_error', action_result.get('error', 'нет деталей')))
-        context_lines.append(f"- Детали от системы: {details}")
-    else: # Если это, например, просто NLU результат для общего чата
-        context_lines.append(f"- Распознанное намерение: {action_result.get('intent', 'неизвестно')}")
+    context_lines = ["Information about the result to formulate a response for Iskra:"]
+    # Adapt this part based on what your action_handlers (like device_control_handler) will return
+    # For a 'setting' action, you might want to include which settings were applied.
+    if 'success' in action_result: 
+        context_lines.append(f"- Success: {action_result.get('success')}")
+        details = action_result.get('message_for_user', action_result.get('details_or_error', action_result.get('error', 'no details')))
+        context_lines.append(f"- System Details: {details}")
+        # Add more specific details if available in action_result for 'setting'
+        if action_result.get('action_performed') == 'setting':
+            if action_result.get('brightness_pct_set') is not None:
+                context_lines.append(f"- Brightness set to: {action_result.get('brightness_pct_set')}%")
+            if action_result.get('color_temp_qualitative_set') is not None:
+                context_lines.append(f"- Color temperature set to: {action_result.get('color_temp_qualitative_set')}")
+            if action_result.get('color_temp_kelvin_set') is not None:
+                context_lines.append(f"- Color temperature set to: {action_result.get('color_temp_kelvin_set')}K")
+    else: 
+        context_lines.append(f"- Recognized Intent: {action_result.get('intent', 'unknown')}") # Fallback for non-action results
         if action_result.get('entities'):
-            context_lines.append(f"- Распознанные параметры: {json.dumps(action_result.get('entities'), ensure_ascii=False)}")
-        if action_result.get('raw_response'): # Если есть сырой ответ от NLU
-             context_lines.append(f"- Исходный JSON от NLU: {action_result.get('raw_response')}")
-
+            context_lines.append(f"- Recognized Parameters: {json.dumps(action_result.get('entities'), ensure_ascii=False)}")
+        if action_result.get('raw_response'): 
+             context_lines.append(f"- Raw JSON from NLU: {action_result.get('raw_response')}")
 
     if user_query:
-        context_lines.append(f"- Исходный запрос Искры был: \"{user_query}\"")
+        context_lines.append(f"- Iskra's original request was: \"{user_query}\"")
     
-    context_lines.append("\nПожалуйста, Обсидиан, теперь ответь Искре на основе этой информации, следуя системной инструкции.")
+    context_lines.append("\nPlease, Nox, now respond to Iskra based on this information, following the system instruction.")
     context_for_llm = "\n".join(context_lines)
 
     api_endpoint = f"{ollama_url}/api/chat"
@@ -169,82 +193,85 @@ def generate_natural_response(action_result: dict, user_query: str = None) -> st
         {"role": "system", "content": response_gen_instruction}, 
         {"role": "user", "content": context_for_llm } 
     ]
-    payload = {
-        "model": model_name,
-        "messages": messages,
-        "stream": False 
-    }
+    payload = { "model": model_name, "messages": messages, "stream": False }
     headers = {"Content-Type": "application/json"}
 
-    print(f"NLU_Engine (gen_resp): Отправка запроса на генерацию ответа в Ollama (/api/chat).")
-    # Для отладки:
-    # print(f"DEBUG (gen_resp): System Prompt: {response_gen_instruction}")
-    # print(f"DEBUG (gen_resp): User Context for LLM: {context_for_llm}")  
-
+    print(f"NLU_Engine (gen_resp): Sending response generation request to Ollama (/api/chat).")
     try:
         response = requests.post(api_endpoint, json=payload, headers=headers, timeout=120)
         response.raise_for_status()
         response_data = response.json()
-
         if response_data.get("message") and isinstance(response_data["message"], dict) and "content" in response_data["message"]:
             natural_response = response_data["message"]["content"].strip()
-            print(f"NLU_Engine (gen_resp): Получен естественный ответ от LLM: {natural_response}")
+            print(f"NLU_Engine (gen_resp): Received natural response from LLM: {natural_response}")
             return natural_response
         else:
-            print(f"Ошибка NLU_Engine (gen_resp): Неожиданный формат ответа от Ollama: {response_data}")
-            return "Извини, я получил странный ответ и не могу его озвучить."
-            
+            print(f"NLU_Engine Error (gen_resp): Unexpected response format from Ollama: {response_data}")
+            return "Sorry, I received a strange response and can't voice it."
     except requests.exceptions.RequestException as e:
-        print(f"Ошибка NLU_Engine (gen_resp): Сетевая ошибка: {e}")
-        return "Извини, у меня проблемы со связью с моим 'мозгом'. Попробуй позже."
+        print(f"NLU_Engine Network Error (gen_resp): {e}")
+        return "Sorry, I'm having trouble connecting to my 'brain'. Please try again later."
     except Exception as e:
-        print(f"Ошибка NLU_Engine (gen_resp): Непредвиденная ошибка: {e}")
+        print(f"NLU_Engine Unexpected Error (gen_resp): {e}")
         import traceback
         traceback.print_exc()
-        return "Ой, что-то пошло не так, когда я пытался придумать ответ."
+        return "Oops, something went wrong while I was trying to think of a reply."
 
-
-# --- Тестовый блок для nlu_engine ---
+# --- Test block for nlu_engine ---
 if __name__ == "__main__":
-    print("Запуск тестового скрипта NLU Engine (v_full_instructions_v2)...")
+    print("Starting NLU Engine test script (v_with_pydantic_for_setting)...")
     if CONFIG_DATA and LLM_INSTRUCTIONS_DATA:
         
-        test_nlu_command = "включи свет на кухне на 50%"
-        print(f"\n--- Тест NLU для команды: '{test_nlu_command}' ---")
-        structured_nlu = get_structured_nlu_from_text(test_nlu_command)
-        print(f"Результат NLU: {json.dumps(structured_nlu, indent=2, ensure_ascii=False)}")
+        test_nlu_commands = [
+            "включи свет", # action: turn_on
+            "свет на 70",   # action: setting, brightness_pct: 70
+            "теплый свет",  # action: setting, color_temp_qualitative: "warm"
+            "свет 4500",    # action: setting, color_temp_kelvin: 4500
+            "холодный свет на 30", # action: setting, color_temp_qualitative: "cool", brightness_pct: 30
+            "расскажи анекдот" # Should ideally result in nlu_validation_error or nlu_parsing_error
+        ]
 
-        if structured_nlu and not structured_nlu.get("error"):
-            # Имитируем результат УСПЕШНОГО действия от обработчика интента
-            mock_action_result_success = {
-                "success": True, 
-                "message_for_user": "Свет на кухне успешно включен на 50% яркости.", # Это сообщение от device_control_handler
-                # Дополнительные поля, которые может вернуть handler для контекста LLM
-                "action_performed": structured_nlu.get("intent"), 
-                "target_device": structured_nlu.get("entities", {}).get("target_device"),
-                "location": structured_nlu.get("entities", {}).get("location"),
-                "value": structured_nlu.get("entities", {}).get("value")
-            }
-            print(f"\n--- Тест генерации ответа для УСПЕШНОГО действия ---")
-            print(f"Передаем в generate_natural_response: action_result={mock_action_result_success}, user_query='{test_nlu_command}'")
-            natural_resp_success = generate_natural_response(mock_action_result_success, test_nlu_command)
-            print(f"Сгенерированный ответ Обсидиана (успех): {natural_resp_success}")
+        for command_str in test_nlu_commands:
+            print(f"\n--- Testing NLU for command: '{command_str}' ---")
+            structured_nlu_output = get_structured_nlu_from_text(command_str)
+            
+            print(f"NLU Result: {json.dumps(structured_nlu_output, indent=2, ensure_ascii=False)}")
 
-            # Имитируем результат НЕУСПЕШНОГО действия
-            mock_action_result_fail = {
-                "success": False,
-                "message_for_user": "Не удалось включить свет. Устройство 'light.kitchen' не отвечает.", # Это сообщение от device_control_handler
-                "action_performed": structured_nlu.get("intent"),
-                "target_device": structured_nlu.get("entities", {}).get("target_device"),
-                "location": structured_nlu.get("entities", {}).get("location")
-                # 'value' может отсутствовать при ошибке
-            }
-            print(f"\n--- Тест генерации ответа для НЕУСПЕШНОГО действия ---")
-            print(f"Передаем в generate_natural_response: action_result={mock_action_result_fail}, user_query='{test_nlu_command}'")
-            natural_resp_fail = generate_natural_response(mock_action_result_fail, test_nlu_command)
-            print(f"Сгенерированный ответ Обсидиана (ошибка): {natural_resp_fail}")
-        else:
-            print("\nПропускаем тест генерации ответа, так как NLU вернул ошибку или некорректный результат.")
+            if structured_nlu_output and not structured_nlu_output.get("error"):
+                mock_action_result = { "success": True }
+                # Populate mock_action_result with more details based on structured_nlu_output
+                mock_action_result["action_performed"] = structured_nlu_output.get("intent") + "/" + structured_nlu_output.get("entities", {}).get("action", "unknown_action")
+                mock_action_result["target_device"] = structured_nlu_output.get("entities", {}).get("target_device")
+                mock_action_result["location"] = structured_nlu_output.get("entities", {}).get("location")
+                
+                # Add specific setting values to the message for user
+                settings_applied_parts = []
+                if structured_nlu_output.get("entities", {}).get("brightness_pct") is not None:
+                    settings_applied_parts.append(f"яркость {structured_nlu_output['entities']['brightness_pct']}%")
+                    mock_action_result["brightness_pct_set"] = structured_nlu_output['entities']['brightness_pct']
+                if structured_nlu_output.get("entities", {}).get("color_temp_qualitative") is not None:
+                    settings_applied_parts.append(f"температура '{structured_nlu_output['entities']['color_temp_qualitative']}'")
+                    mock_action_result["color_temp_qualitative_set"] = structured_nlu_output['entities']['color_temp_qualitative']
+                if structured_nlu_output.get("entities", {}).get("color_temp_kelvin") is not None:
+                    settings_applied_parts.append(f"температура {structured_nlu_output['entities']['color_temp_kelvin']}K")
+                    mock_action_result["color_temp_kelvin_set"] = structured_nlu_output['entities']['color_temp_kelvin']
+                
+                settings_applied_str = ", ".join(settings_applied_parts)
+                mock_action_result["message_for_user"] = f"Настройки для света ({settings_applied_str if settings_applied_str else 'действие'}) успешно применены."
+
+                print(f"\n--- Testing response generation for SIMULATED SUCCESS ---")
+                natural_response = generate_natural_response(mock_action_result, command_str)
+                print(f"Nox's Generated Response: {natural_response}")
+
+            elif structured_nlu_output and structured_nlu_output.get("error"):
+                 mock_error_result = {
+                    "success": False,
+                    "message_for_user": f"NLU Error: {structured_nlu_output.get('error')}. Details: {structured_nlu_output.get('details', 'N/A')}",
+                    "action_performed": "nlu_processing_error",
+                 }
+                 print(f"\n--- Testing response generation for NLU ERROR ---")
+                 natural_response_error = generate_natural_response(mock_error_result, command_str)
+                 print(f"Nox's Generated Response (NLU error): {natural_response_error}")
     else:
-        print("NLU_Engine: Конфигурация или инструкции LLM не загружены. Тесты не могут быть выполнены.")
-    print("\nЗавершение тестового скрипта NLU Engine (v_full_instructions_v2).")
+        print("NLU_Engine: LLM Configuration or instructions not loaded. Tests cannot be performed.")
+    print("\nNLU Engine test script (v_with_pydantic_for_setting) finished.")

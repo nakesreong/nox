@@ -1,36 +1,29 @@
 # app/dispatcher.py
 
-# Импортируем наши обработчики интентов
-from app.intent_handlers import device_control_handler 
-# from app.intent_handlers import get_weather_handler # Будущие
-# from app.intent_handlers import ask_time_handler    # Будущие
-# fallback_handler.py нам больше не нужен для этой логики
+from app.intent_handlers import device_control_handler
+# fallback_handler нам больше не нужен для этой логики
 
 INTENT_HANDLERS_MAP = {
     "control_device": device_control_handler.handle_device_control,
-    # "greeting": some_other_handler.handle_greeting, # Если решим добавить
-    # "tell_joke": some_other_handler.handle_tell_joke, # Если решим добавить
+    # Другие специализированные хендлеры будут здесь
 }
 
 def dispatch(intent: str, entities: dict, original_user_query: str = None) -> dict:
     """
     Выбирает и вызывает подходящий обработчик интента.
-    Если для интента нет специализированного обработчика, возвращает результат "неизвестный интент".
+    Если для интента нет специализированного обработчика, 
+    возвращает результат, указывающий на то, что команда должна быть проигнорирована.
     """
     print(f"Dispatcher: Получен интент '{intent}' с сущностями: {entities}")
     if original_user_query:
         print(f"Dispatcher: Исходный запрос пользователя: '{original_user_query}'")
-    
+
     handler_function = INTENT_HANDLERS_MAP.get(intent)
-    
+
     if handler_function:
         print(f"Dispatcher: Найден обработчик для интента '{intent}'. Вызываем {handler_function.__name__}...")
         try:
-            # Передаем в хендлер и entities, и original_user_query, если он ему нужен
-            # Большинству командных хендлеров original_user_query не нужен, они работают по entities.
-            # Но для "болтательных" он может быть полезен (если мы их вернем).
-            # Пока наш device_control_handler его не использует.
-            result = handler_function(entities) 
+            result = handler_function(entities)
             print(f"Dispatcher: Результат от обработчика {handler_function.__name__}: {result}")
             return result
         except Exception as e:
@@ -39,21 +32,21 @@ def dispatch(intent: str, entities: dict, original_user_query: str = None) -> di
             import traceback
             traceback.print_exc()
             return {
-                "success": False, 
+                "success": False,
                 "action_performed": "handler_error",
                 "details_or_error": error_msg,
-                "intent": intent, # Для контекста LLM
-                "entities": entities # Для контекста LLM
+                "intent": intent,
+                "entities": entities
             }
     else:
         # Если специализированный обработчик не найден
-        unknown_intent_message = f"Намерение (интент) '{intent}' не распознано или для него нет обработчика."
+        unknown_intent_message = f"Намерение (интент) '{intent}' не обработано (нет хендлера)."
         print(f"Dispatcher: {unknown_intent_message}")
         return {
-            "success": False, # Считаем это "неуспехом" с точки зрения выполнения команды
-            "action_performed": "unknown_intent_received", 
-            "details_or_error": unknown_intent_message,
-            "intent": intent, # Передаем исходный интент
-            "entities": entities,  # И исходные сущности
-            "user_query": original_user_query # И исходный запрос для LLM
+            "status": "ignored", # <--- НАШ НОВЫЙ СИГНАЛ ДЛЯ ИГНОРИРОВАНИЯ
+            "reason": "unhandled_intent",
+            "intent": intent,
+            "entities": entities,
+            "details_or_error": unknown_intent_message 
+            # Это поле может быть полезно для логов, но не для ответа пользователю
         }
