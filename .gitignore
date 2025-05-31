@@ -136,3 +136,4 @@ homeassistant_config/
 
 configs/settings.yaml
 configs/
+tmp_audio/
