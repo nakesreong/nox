@@ -1,10 +1,11 @@
 # app/dispatcher.py
 
-from app.intent_handlers import device_control_handler
+from app.intent_handlers import device_control_handler, general_chat_handler
 # fallback_handler нам больше не нужен для этой логики
 
 INTENT_HANDLERS_MAP = {
     "control_device": device_control_handler.handle_device_control,
+    "general_chat": general_chat_handler.handle_general_chat, 
     # Другие специализированные хендлеры будут здесь
 }
 
