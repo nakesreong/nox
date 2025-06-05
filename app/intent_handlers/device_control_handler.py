@@ -58,10 +58,10 @@ def handle_device_control(entities: dict) -> dict:
                 # The best is to pass all to light_actions.turn_on()
                 
                 temp_to_use_for_turn_on = None
-                if color_temp_qualitative in light_actions.COLOR_TEMPERATURE_PRESETS_KELVIN:
+                if color_temp_qualitative.lower() in light_actions.COLOR_TEMPERATURE_PRESETS_KELVIN:
                     final_kelvin_to_set = light_actions.COLOR_TEMPERATURE_PRESETS_KELVIN[color_temp_qualitative.lower()]
-                    temp_qualitative_set = color_temp_qualitative # For response
-                    temp_kelvin_set = final_kelvin_to_set # For response
+                    temp_qualitative_set = color_temp_qualitative.lower()  # normalize for response
+                    temp_kelvin_set = final_kelvin_to_set  # For response
                 else: # Invalid qualitative temp
                     return {"success": False, 
                             "details_or_error": f"Unknown qualitative temperature: '{color_temp_qualitative}'. Use 'warm', 'cool', or 'natural'.",
