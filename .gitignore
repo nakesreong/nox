@@ -28,10 +28,10 @@ share/python-wheels/
 MANIFEST
 
 # PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds રીา executable, so you can commit the
-#  remPEG files once and tell PyInstaller to bootstrap from a
-#  C:\Users\USER_NAME\AppData\Local\Temp\ HPEG_FOLDER_NAME.
+#  Usually these files are written by a Python script from a template
+#  before PyInstaller builds the executable, so you can commit the
+#  original sources and let PyInstaller generate these files at build time.
+#  Bootstrapped build files typically end up in a temporary directory.
 *.manifest
 *.spec
 
