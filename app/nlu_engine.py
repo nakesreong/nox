@@ -18,7 +18,8 @@ class EntitiesModel(BaseModel):
     color_temp_kelvin: Optional[int] = None    # For specific Kelvin values
     # Generic value, can be used if no specific field above applies,
     # or for simple qualitative temperature if action is set_color_temperature (legacy, try to avoid)
-    value: Optional[Any] = None 
+    value: Optional[Any] = None
+    expression: Optional[str] = None 
 
 class NluResponseModel(BaseModel):
     intent: str 

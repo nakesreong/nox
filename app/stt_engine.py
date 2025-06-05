@@ -44,7 +44,8 @@ try:
     # download_root можно будет тоже брать из конфига, если решим его использовать
     # download_root_path = STT_CONFIG_DATA.get('stt_engine', {}).get('download_root') if STT_CONFIG_DATA else None
     # STT_MODEL = whisper.load_model(MODEL_TO_LOAD, download_root=download_root_path if download_root_path else None)
-    STT_MODEL = whisper.load_model(MODEL_TO_LOAD)
+    STT_MODEL = whisper.load_model(MODEL_TO_LOAD)  # Указываем device="cpu" для явного использования CPU
+    # Если нужно использовать GPU, можно указать device="cuda" или "cuda:0" для первого доступного GPU
     print(f"STT_Engine: Модель Whisper '{MODEL_TO_LOAD}' успешно загружена.")
 except Exception as e:
     # ... (обработка ошибок загрузки модели остается как раньше, но можно упомянуть MODEL_TO_LOAD)

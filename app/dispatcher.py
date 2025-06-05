@@ -1,11 +1,13 @@
 # app/dispatcher.py
 
 from app.intent_handlers import device_control_handler, general_chat_handler
-# fallback_handler нам больше не нужен для этой логики
+# Импортируем наш новый хендлер для математических операций
+from app.intent_handlers import math_operation_handler 
 
 INTENT_HANDLERS_MAP = {
     "control_device": device_control_handler.handle_device_control,
-    "general_chat": general_chat_handler.handle_general_chat, 
+    "general_chat": general_chat_handler.handle_general_chat,
+    "math_operation": math_operation_handler.handle_math_operation, # <--- НАШ НОВЫЙ ХЕНДЛЕР
     # Другие специализированные хендлеры будут здесь
 }
 
@@ -24,6 +26,7 @@ def dispatch(intent: str, entities: dict, original_user_query: str = None) -> di
     if handler_function:
         print(f"Dispatcher: Найден обработчик для интента '{intent}'. Вызываем {handler_function.__name__}...")
         try:
+            # Передаем entities в хендлер
             result = handler_function(entities)
             print(f"Dispatcher: Результат от обработчика {handler_function.__name__}: {result}")
             return result
@@ -44,10 +47,9 @@ def dispatch(intent: str, entities: dict, original_user_query: str = None) -> di
         unknown_intent_message = f"Намерение (интент) '{intent}' не обработано (нет хендлера)."
         print(f"Dispatcher: {unknown_intent_message}")
         return {
-            "status": "ignored", # <--- НАШ НОВЫЙ СИГНАЛ ДЛЯ ИГНОРИРОВАНИЯ
+            "status": "ignored", 
             "reason": "unhandled_intent",
             "intent": intent,
             "entities": entities,
-            "details_or_error": unknown_intent_message 
-            # Это поле может быть полезно для логов, но не для ответа пользователю
+            "details_or_error": unknown_intent_message
         }
