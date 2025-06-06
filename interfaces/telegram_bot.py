@@ -1,4 +1,12 @@
 # interfaces/telegram_bot.py
+"""Telegram interface for sending commands and receiving responses.
+
+The module configures a :class:`telegram.ext.Application` instance, loads bot
+settings from ``configs/settings.yaml`` and initializes :class:`app.core_engine.CoreEngine`.
+It defines handlers for text and voice messages that utilize speech-to-text and
+the core engine to process user requests.  ``run_bot`` launches the polling
+loop and is used when running this script directly.
+"""
 
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from telegram import Update
@@ -249,6 +257,7 @@ def run_bot() -> None:
     logger.info("Нокс (Telegram Бот) остановлен.")
 
 
+# Manual test example: run this file directly to start the Telegram bot.
 if __name__ == "__main__":
     run_bot()
 

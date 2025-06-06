@@ -178,7 +178,6 @@ def set_color_temperature(temperature_value, entity_ids: list = None):
     # Сервис light.turn_on с color_temp_kelvin также включит свет, если он был выключен
     return turn_on(entity_ids=targets, kelvin=kelvin_to_set)
 
-
 # Example usage of light actions
 if __name__ == "__main__":
     if not (HA_URL and HA_TOKEN and DEFAULT_LIGHT_ENTITY_IDS):

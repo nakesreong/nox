@@ -1,9 +1,16 @@
 # app/stt_engine.py
+"""Speech-to-text engine based on the Whisper model.
+
+This module loads a Whisper model according to ``configs/settings.yaml`` and
+provides :func:`transcribe_audio_to_text` for converting audio files to text. It
+is utilized by the Telegram bot for voice command recognition and can be run
+standalone for debugging.
+"""
 
 import whisper
 import os
-import yaml  # <--- ДОБАВЛЯЕМ ИМПОРТ YAML
-from pathlib import Path  # <--- ДОБАВЛЯЕМ ИМПОРТ PATH (если его еще нет)
+import yaml  # used for reading configuration files
+from pathlib import Path  # provides cross-platform path operations
 
 # --- Загрузка конфигурации STT (размер модели) ---
 STT_CONFIG_DATA = None
@@ -99,6 +106,7 @@ def transcribe_audio_to_text(audio_file_path: str) -> str | None:
         return None
 
 
+# Manual test example: run this module directly to test STT.
 # --- Тестовый блок для проверки stt_engine ---
 if __name__ == "__main__":
     print("\n--- Запуск тестового скрипта STT Engine ---")
