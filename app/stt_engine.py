@@ -9,22 +9,14 @@ standalone for debugging.
 
 import whisper
 import os
-import yaml  # used for reading configuration files
-from pathlib import Path  # provides cross-platform path operations
+from .config_loader import load_settings
 
 # --- Load STT configuration (model size) ---
 STT_CONFIG_DATA = None
 MODEL_SIZE_FROM_CONFIG = "base"  # Default value if the config fails to load
 
 try:
-    # Path to settings.yaml (same as other modules)
-    current_dir_stt = os.path.dirname(os.path.abspath(__file__))
-    # Move from app/ to project root
-    project_root_stt = os.path.dirname(current_dir_stt)
-    config_path_stt = os.path.join(project_root_stt, "configs", "settings.yaml")
-
-    with open(config_path_stt, "r", encoding="utf-8") as f:
-        STT_CONFIG_DATA = yaml.safe_load(f)
+    STT_CONFIG_DATA = load_settings()
 
     if STT_CONFIG_DATA and "stt_engine" in STT_CONFIG_DATA and "whisper_model_size" in STT_CONFIG_DATA["stt_engine"]:
         MODEL_SIZE_FROM_CONFIG = STT_CONFIG_DATA["stt_engine"]["whisper_model_size"]
@@ -37,9 +29,13 @@ try:
         )
 
 except FileNotFoundError:
-    print(f"STT_Engine: configs/settings.yaml not found. Using default Whisper model '{MODEL_SIZE_FROM_CONFIG}'")
-except (yaml.YAMLError, ValueError) as e_yaml:
-    print(f"STT_Engine: Error in configs/settings.yaml: {e_yaml}. Using default Whisper model '{MODEL_SIZE_FROM_CONFIG}'")
+    print(
+        f"STT_Engine: configs/settings.yaml not found. Using default Whisper model '{MODEL_SIZE_FROM_CONFIG}'"
+    )
+except (RuntimeError, ValueError) as e_yaml:
+    print(
+        f"STT_Engine: Error in configs/settings.yaml: {e_yaml}. Using default Whisper model '{MODEL_SIZE_FROM_CONFIG}'"
+    )
 except Exception as e_conf:
     print(f"STT_Engine: Unexpected error loading STT configuration: {e_conf}. Using default Whisper model '{MODEL_SIZE_FROM_CONFIG}'")
 # --- End of STT configuration loading ---

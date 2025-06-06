@@ -13,7 +13,10 @@ import yaml
 import requests
 import os
 import json
+from pathlib import Path
 from typing import Optional, Any, Dict
+
+from .config_loader import load_settings
 from pydantic import BaseModel, ValidationError
 
 # --- Pydantic Models for NLU JSON Validation ---
@@ -45,18 +48,16 @@ CONFIG_DATA = None
 LLM_INSTRUCTIONS_DATA = None
 
 try:
-    current_dir_nlu = os.path.dirname(os.path.abspath(__file__))
-    project_root_nlu = os.path.dirname(current_dir_nlu)
-
-    config_path_nlu = os.path.join(project_root_nlu, "configs", "settings.yaml")
-    with open(config_path_nlu, "r", encoding="utf-8") as f:
-        CONFIG_DATA = yaml.safe_load(f)
-    if not CONFIG_DATA or "ollama" not in CONFIG_DATA:
+    CONFIG_DATA = load_settings()
+    if "ollama" not in CONFIG_DATA:
         raise ValueError("Section 'ollama' not found in configs/settings.yaml")
     print("NLU_Engine: Main configuration (settings.yaml) loaded successfully.")
 
-    instructions_path_nlu = os.path.join(project_root_nlu, "configs", "llm_instructions.yaml")
-    with open(instructions_path_nlu, "r", encoding="utf-8") as f:
+    current_dir_nlu = Path(__file__).resolve().parent
+    project_root_nlu = current_dir_nlu.parent
+
+    instructions_path_nlu = project_root_nlu / "configs" / "llm_instructions.yaml"
+    with instructions_path_nlu.open("r", encoding="utf-8") as f:
         LLM_INSTRUCTIONS_DATA = yaml.safe_load(f)
 
     if (
