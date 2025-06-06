@@ -53,20 +53,7 @@ class CoreEngine:
             intent = structured_nlu_result.get("intent")
             entities = structured_nlu_result.get("entities", {})
 
-            # --- ЭТАП 1 (для голосовых команд): Генерация Подтверждения Понимания ---
-            # ВЕСЬ ЭТОТ БЛОК IF IS_VOICE_COMMAND НИЖЕ МОЖНО ПОЛНОСТЬЮ УДАЛИТЬ ИЛИ ЗАКОММЕНТИРОВАТЬ
-            # if is_voice_command:
-            #     print(f"CoreEngine: Голосовая команда. Генерируем подтверждение для интента '{intent}'...")
-            #     nlu_ack_payload_for_llm = {
-            #         "response_type": "nlu_acknowledgement",
-            #         "understood_intent": intent,
-            #         "understood_entities": entities,
-            #     }
-            #     acknowledgement_response = nlu_engine.generate_natural_response(
-            #         nlu_ack_payload_for_llm,
-            #         user_command_text
-            #     )
-            #     print(f"CoreEngine: Сгенерировано подтверждение: '{acknowledgement_response}'")
+            # Голосовое подтверждение понимания отключено
 
             # --- ЭТАП 2: Выполнение Команды (если есть интент) и Генерация Финального Ответа ---
             if intent:
