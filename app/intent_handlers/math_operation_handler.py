@@ -4,11 +4,7 @@ import traceback  # Для вывода информации об ошибках
 
 
 def handle_math_operation(entities: dict) -> dict:
-    """
-    Handles the 'math_operation' intent.
-    Tries to evaluate the mathematical expression provided in entities.
-    Returns a dictionary with the result or an error message.
-    """
+    """Evaluate a math expression for the intent and return a result. Uses eval() on sanitized input; caution advised."""
     print(f"MathOperationHandler: Received entities: {entities}")
 
     expression_to_evaluate = entities.get("expression")
@@ -27,10 +23,6 @@ def handle_math_operation(entities: dict) -> dict:
     print(f"MathOperationHandler: Attempting to evaluate expression: '{expression_to_evaluate}'")
 
     try:
-        # ВНИМАНИЕ: Использование eval() может быть небезопасным с неконтролируемым вводом.
-        # Для нашего случая, где выражение приходит от NLU и в основном используется тобой,
-        # риск приемлем на данном этапе.
-        # В будущем можно рассмотреть более безопасные парсеры, если потребуется.
 
         # Простая проверка на наличие только разрешенных символов перед eval
         # Это очень базовая защита, не исчерпывающая!

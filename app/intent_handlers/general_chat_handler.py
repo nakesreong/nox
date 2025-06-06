@@ -1,8 +1,5 @@
-# Внутри app/intent_handlers/general_chat_handler.py
 def handle_general_chat(entities: dict) -> dict:
-    # entities может содержать что-то вроде {'request_type': 'tell_joke'} или {'greeting_type': 'hello'} от NLU
-    # Мы просто передаем интент и сущности дальше, чтобы LLM сама разобралась на основе response_generation_instruction_simple
-    # Добавим лог для ясности
+    """Forward casual chat entities to the LLM and return a response."""
     print(f"GeneralChatHandler: Получены entities: {entities}")
     return {
         "success": True,  # Предполагаем, что "болтовня" всегда "успешна"
