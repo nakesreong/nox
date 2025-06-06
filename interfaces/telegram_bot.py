@@ -1,11 +1,9 @@
-# interfaces/telegram_bot.py
-"""Telegram interface for sending commands and receiving responses.
+"""Telegram bot interface for the CoreEngine.
 
-The module configures a :class:`telegram.ext.Application` instance, loads bot
-settings from ``configs/settings.yaml`` and initializes :class:`app.core_engine.CoreEngine`.
-It defines handlers for text and voice messages that utilize speech-to-text and
-the core engine to process user requests.  ``run_bot`` launches the polling
-loop and is used when running this script directly.
+This module exposes :func:`run_bot` which starts a Telegram bot capable of
+processing text and voice commands. Incoming messages are passed to the
+``CoreEngine`` and responses are sent back to the user.
+
 """
 
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -18,12 +16,11 @@ import json
 import uuid
 from pathlib import Path
 
-# --- Настройка путей ---
+# Add project root so internal modules are importable
 current_dir_bot = os.path.dirname(os.path.abspath(__file__))
 project_root_bot = os.path.dirname(current_dir_bot)
 if project_root_bot not in sys.path:
     sys.path.insert(0, project_root_bot)
-# --- Конец настройки путей ---
 
 try:
     from app.core_engine import CoreEngine
@@ -38,7 +35,7 @@ except Exception as import_err:
     sys.exit(1)
 
 
-# --- Директория для временных аудиофайлов ---
+# Directory for temporary audio files
 TEMP_AUDIO_DIR = os.path.join(project_root_bot, "temp_audio")
 try:
     Path(TEMP_AUDIO_DIR).mkdir(parents=True, exist_ok=True)
@@ -46,9 +43,8 @@ try:
 except Exception as e_mkdir:
     print(f"Критическая ошибка Telegram-бота: Не удалось создать временную директорию {TEMP_AUDIO_DIR}: {e_mkdir}")
     sys.exit(1)
-# --- Конец настройки директории ---
 
-# --- Загрузка конфигурации ---
+# Load configuration
 TELEGRAM_TOKEN = None
 ALLOWED_USER_IDS = []
 
@@ -72,15 +68,13 @@ try:
 except Exception as e:
     print(f"Критическая ошибка Telegram-бота: Не удалось загрузить конфигурацию: {e}")
     sys.exit(1)
-# --- Конец загрузки конфигурации ---
 
-# --- Настройка логирования ---
+# Configure logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
-# --- Конец настройки логирования ---
 
-# --- Инициализация CoreEngine ---
+# Initialize CoreEngine
 CORE_ENGINE_INSTANCE = None
 try:
     CORE_ENGINE_INSTANCE = CoreEngine()
@@ -90,7 +84,6 @@ except Exception as e:
     logger.error(f"Критическая ошибка Telegram-бота при инициализации CoreEngine: {e}")
     print("Telegram_Bot: Не удалось инициализировать CoreEngine. Запуск бота отменен.")
     sys.exit(1)
-# --- Конец инициализации CoreEngine ---
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -172,8 +165,6 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
     downloaded_file_path = None
 
     try:
-        # Убрали предварительное "Получил твое голосовое сообщение..."
-
         ogg_file = await context.bot.get_file(file_id)
         unique_filename = f"{user_id}_{uuid.uuid4()}.ogg"
         downloaded_file_path_obj = Path(TEMP_AUDIO_DIR) / unique_filename
@@ -186,8 +177,6 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
         if recognized_text:
             logger.info(f"Telegram_Bot: Распознанный текст из голоса: '{recognized_text}'")
 
-            # Убрали "Я расслышал..." и "Обрабатываю команду..." - теперь это делает LLM
-
             if not CORE_ENGINE_INSTANCE or not CORE_ENGINE_INSTANCE.config_data:
                 response_to_user = "Извини, мой внутренний движок сейчас не доступен или не настроен."
                 logger.error("Telegram_Bot: CoreEngine не инициализирован или его конфиг не загружен для голосового сообщения.")
@@ -198,7 +187,7 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
             engine_response_dict = CORE_ENGINE_INSTANCE.process_user_command(recognized_text, is_voice_command=True)
             logger.info(f"Telegram_Bot: Полный ответ от CoreEngine для {user_name} (голос -> текст '{recognized_text}'): {engine_response_dict}")
 
-            # --- НОВАЯ ЛОГИКА ОТПРАВКИ ДВУХ ОТВЕТОВ ---
+            # Send acknowledgement and final status separately
             acknowledgement = engine_response_dict.get("acknowledgement_response")
             final_status = engine_response_dict.get("final_status_response")
 
@@ -209,7 +198,6 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
                 await update.message.reply_text(final_status)
             elif not acknowledgement:  # Если не было ни подтверждения, ни финального ответа
                 logger.info(f"Telegram_Bot: Для распознанной команды '{recognized_text}' от {user_name} нет никакого ответа.")
-            # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
         else:  # Если STT не смог распознать текст
             logger.warning(f"Telegram_Bot: Не удалось распознать текст из голосового сообщения от {user_name}.")
