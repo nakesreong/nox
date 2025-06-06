@@ -1,10 +1,43 @@
 # app/intent_handlers/math_operation_handler.py
 
 import traceback  # For error details
+import ast
+import operator
+
+
+# Allowed operators mapping for safe evaluation
+_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+    ast.FloorDiv: operator.floordiv,
+}
+
+
+def _eval_ast(node):
+    """Recursively evaluate an AST node containing only arithmetic."""
+    if isinstance(node, ast.Expression):
+        return _eval_ast(node.body)
+    elif isinstance(node, ast.Constant):
+        if isinstance(node.value, (int, float)):
+            return node.value
+        raise ValueError("Only numeric constants are allowed")
+    elif isinstance(node, ast.BinOp) and type(node.op) in _OPERATORS:
+        left = _eval_ast(node.left)
+        right = _eval_ast(node.right)
+        return _OPERATORS[type(node.op)](left, right)
+    elif isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        operand = _eval_ast(node.operand)
+        return +operand if isinstance(node.op, ast.UAdd) else -operand
+    else:
+        raise ValueError("Expression contains disallowed operations")
 
 
 def handle_math_operation(entities: dict) -> dict:
-    """Evaluate a math expression for the intent and return a result. Uses eval() on sanitized input; caution advised."""
+    """Evaluate a math expression for the intent and return a result using safe AST evaluation."""
     print(f"MathOperationHandler: Received entities: {entities}")
 
     expression_to_evaluate = entities.get("expression")
@@ -23,27 +56,8 @@ def handle_math_operation(entities: dict) -> dict:
     print(f"MathOperationHandler: Attempting to evaluate expression: '{expression_to_evaluate}'")
 
     try:
-
-        # Basic check to allow only certain characters before eval
-        # This is a minimal safeguard!
-        # Added % for modulo operations
-        allowed_chars = set("0123456789.+-*/%() ")
-        if not all(char in allowed_chars for char in expression_to_evaluate):
-            error_msg = f"MathOperationHandler: Expression '{expression_to_evaluate}' contains disallowed characters."
-            print(error_msg)
-            return {
-                "success": False,
-                "action_performed": "math_calculation_error",
-                "details_or_error": "Expression contains disallowed characters.",
-                "expression_evaluated": expression_to_evaluate,
-                "result": None,
-            }
-
-        # For functions like 'sqrt', 'sin', 'cos', 'pow' we'd need to import math
-        # and allow them in eval or write our own parser. For now only basic arithmetic.
-        # For "to the power of" NLU already provides "25 ** 3" which eval understands.
-
-        calculation_result = eval(expression_to_evaluate)
+        parsed = ast.parse(expression_to_evaluate, mode="eval")
+        calculation_result = _eval_ast(parsed)
 
         print(f"MathOperationHandler: Expression '{expression_to_evaluate}' evaluated to: {calculation_result}")
 
@@ -78,6 +92,19 @@ def handle_math_operation(entities: dict) -> dict:
             "action_performed": "math_calculation_error",
             "details_or_error": "Syntax error in math expression.",
             "error_type": "SyntaxError",
+            "expression_evaluated": expression_to_evaluate,
+            "result": None,
+        }
+    except ValueError as ve:
+        error_msg = (
+            f"MathOperationHandler: Expression '{expression_to_evaluate}' contains disallowed operations."
+        )
+        print(error_msg)
+        return {
+            "success": False,
+            "action_performed": "math_calculation_error",
+            "details_or_error": "Expression contains disallowed characters or operations.",
+            "error_type": type(ve).__name__,
             "expression_evaluated": expression_to_evaluate,
             "result": None,
         }

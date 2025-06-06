@@ -19,10 +19,16 @@ def test_valid_expression_integer_conversion(math_handler):
     assert result['result'] == 2
 
 
-def test_disallowed_characters(math_handler):
+def test_disallowed_variable(math_handler):
     result = math_handler.handle_math_operation({'expression': '2 + two'})
     assert result['success'] is False
-    assert 'disallowed characters' in result['details_or_error'].lower()
+    assert 'disallowed' in result['details_or_error'].lower()
+
+
+def test_disallowed_function_call(math_handler):
+    result = math_handler.handle_math_operation({'expression': 'abs(5)'})
+    assert result['success'] is False
+    assert 'disallowed' in result['details_or_error'].lower()
 
 
 def test_zero_division_error(math_handler):
