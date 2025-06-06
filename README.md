@@ -120,7 +120,7 @@ This project is an exploration of what's possible with modern AI tools, local LL
 4.  Ensure your `docker-compose.yml` has ports for Ollama and Home Assistant bound to `127.0.0.1` if you only want local access for security.
 5.  Run `docker compose up -d` to start Ollama and Home Assistant services.
 6.  Install Python dependencies: `pip3 install -r requirements.txt` (ensure `python-telegram-bot`, `PyYAML`, `requests`, `Pydantic`, `openai-whisper` are listed).
-7.  Run the main application: `python3 interfaces/telegram_bot.py`.
+7.  Run the main application: `python3 scripts/run_telegram_bot.py`.
 
 ## 💡 Usage
 
@@ -145,6 +145,18 @@ Then run the test suite:
 
 ```bash
 pytest
+```
+
+## 🛠 Manual Test Scripts
+
+Several standalone scripts in the `scripts/` directory allow manual testing of different modules:
+
+```bash
+python3 scripts/core_engine_demo.py
+python3 scripts/nlu_engine_demo.py
+python3 scripts/light_actions_demo.py
+python3 scripts/math_operation_demo.py
+python3 scripts/stt_engine_demo.py
 ```
 
 ## 📝 To-Do / Future Enhancements
