@@ -1,12 +1,14 @@
 # interfaces/telegram_bot.py
 
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update
 import logging
 import os
 import sys
 import yaml
 import json
-import uuid 
-from pathlib import Path 
+import uuid
+from pathlib import Path
 
 # --- Настройка путей ---
 current_dir_bot = os.path.dirname(os.path.abspath(__file__))
@@ -17,7 +19,7 @@ if project_root_bot not in sys.path:
 
 try:
     from app.core_engine import CoreEngine
-    from app.stt_engine import transcribe_audio_to_text 
+    from app.stt_engine import transcribe_audio_to_text
 except ModuleNotFoundError as e:
     print(f"Критическая ошибка Telegram-бота: Не удалось импортировать модули: {e}.")
     print(f"Убедитесь, что app/core_engine.py и app/stt_engine.py существуют и доступны.")
@@ -27,8 +29,6 @@ except Exception as import_err:
     print(f"Критическая ошибка Telegram-бота при импорте модулей: {import_err}")
     sys.exit(1)
 
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # --- Директория для временных аудиофайлов ---
 TEMP_AUDIO_DIR = os.path.join(project_root_bot, "temp_audio")
@@ -45,20 +45,20 @@ TELEGRAM_TOKEN = None
 ALLOWED_USER_IDS = []
 
 try:
-    config_path_bot = os.path.join(project_root_bot, 'configs', 'settings.yaml')
-    with open(config_path_bot, 'r', encoding='utf-8') as f:
+    config_path_bot = os.path.join(project_root_bot, "configs", "settings.yaml")
+    with open(config_path_bot, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
-    
-    TELEGRAM_TOKEN = config.get('telegram_bot', {}).get('token')
+
+    TELEGRAM_TOKEN = config.get("telegram_bot", {}).get("token")
     if not TELEGRAM_TOKEN or TELEGRAM_TOKEN == "YOUR_TELEGRAM_BOT_TOKEN":
         raise ValueError("Токен Telegram-бота не найден или является плейсхолдером в configs/settings.yaml")
-    
-    ALLOWED_USER_IDS = config.get('telegram_bot', {}).get('allowed_user_ids', [])
+
+    ALLOWED_USER_IDS = config.get("telegram_bot", {}).get("allowed_user_ids", [])
     if not ALLOWED_USER_IDS:
         print("ПРЕДУПРЕЖДЕНИЕ: Список разрешенных User ID (allowed_user_ids) в configs/settings.yaml пуст или не найден! Бот будет доступен всем.")
     else:
         print(f"Telegram_Bot: Список разрешенных User ID загружен: {ALLOWED_USER_IDS}")
-        
+
     print("Telegram_Bot: Конфигурация успешно загружена.")
 
 except Exception as e:
@@ -67,10 +67,8 @@ except Exception as e:
 # --- Конец загрузки конфигурации ---
 
 # --- Настройка логирования ---
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-logging.getLogger("httpx").setLevel(logging.WARNING) 
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 # --- Конец настройки логирования ---
 
@@ -78,7 +76,7 @@ logger = logging.getLogger(__name__)
 CORE_ENGINE_INSTANCE = None
 try:
     CORE_ENGINE_INSTANCE = CoreEngine()
-    if not CORE_ENGINE_INSTANCE.config_data: 
+    if not CORE_ENGINE_INSTANCE.config_data:
         logger.error("Telegram_Bot: CoreEngine был создан, но его конфигурация NLU не загружена.")
 except Exception as e:
     logger.error(f"Критическая ошибка Telegram-бота при инициализации CoreEngine: {e}")
@@ -93,11 +91,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text("Извини, у тебя нет доступа к этому боту. 🛑")
         logger.warning(f"Telegram_Bot: Попытка неавторизованного доступа (start) от User ID: {user_id}")
         return
-        
+
     user = update.effective_user
     await update.message.reply_html(
         f"Привет, {user.mention_html()}! Я <b>Нокс</b>, твой личный ИИ-ассистент. Готов служить!",
     )
+
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
@@ -110,6 +109,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "Просто напиши мне свою команду текстом или отправь голосовое сообщение, и я постараюсь ее понять и выполнить.\n"
         "Например: 'включи свет' или 'выключи свет в комнате'."
     )
+
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
@@ -135,11 +135,12 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     # У текстовых команд нет acknowledgement_response, только final_status_response
     response_to_user = engine_response_dict.get("final_status_response")
-    
-    if response_to_user: 
+
+    if response_to_user:
         await update.message.reply_text(response_to_user)
     else:
         logger.info(f"Telegram_Bot: Для команды '{user_text}' от {user_name} нет ответа пользователю (команда проигнорирована).")
+
 
 async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
@@ -151,7 +152,7 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     logger.info(f"Telegram_Bot: Получено ГОЛОСОВОЕ сообщение от {user_name} (ID: {user_id})")
-    
+
     voice = update.message.voice
     if not voice:
         logger.warning("Telegram_Bot: Объект Voice не найден в сообщении.")
@@ -164,10 +165,10 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
     try:
         # Убрали предварительное "Получил твое голосовое сообщение..."
-        
+
         ogg_file = await context.bot.get_file(file_id)
         unique_filename = f"{user_id}_{uuid.uuid4()}.ogg"
-        downloaded_file_path_obj = Path(TEMP_AUDIO_DIR) / unique_filename 
+        downloaded_file_path_obj = Path(TEMP_AUDIO_DIR) / unique_filename
         await ogg_file.download_to_drive(custom_path=downloaded_file_path_obj)
         downloaded_file_path = str(downloaded_file_path_obj)
         logger.info(f"Telegram_Bot: Голосовое сообщение сохранено как: {downloaded_file_path}")
@@ -176,7 +177,7 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
         if recognized_text:
             logger.info(f"Telegram_Bot: Распознанный текст из голоса: '{recognized_text}'")
-            
+
             # Убрали "Я расслышал..." и "Обрабатываю команду..." - теперь это делает LLM
 
             if not CORE_ENGINE_INSTANCE or not CORE_ENGINE_INSTANCE.config_data:
@@ -193,22 +194,23 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
             acknowledgement = engine_response_dict.get("acknowledgement_response")
             final_status = engine_response_dict.get("final_status_response")
 
-            if acknowledgement: # Сначала отправляем подтверждение, если оно есть
+            if acknowledgement:  # Сначала отправляем подтверждение, если оно есть
                 await update.message.reply_text(acknowledgement)
-            
-            if final_status: # Затем отправляем финальный результат/ошибку
+
+            if final_status:  # Затем отправляем финальный результат/ошибку
                 await update.message.reply_text(final_status)
-            elif not acknowledgement: # Если не было ни подтверждения, ни финального ответа
+            elif not acknowledgement:  # Если не было ни подтверждения, ни финального ответа
                 logger.info(f"Telegram_Bot: Для распознанной команды '{recognized_text}' от {user_name} нет никакого ответа.")
             # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
-            
-        else: # Если STT не смог распознать текст
+
+        else:  # Если STT не смог распознать текст
             logger.warning(f"Telegram_Bot: Не удалось распознать текст из голосового сообщения от {user_name}.")
             await update.message.reply_text("Прости, Искра, я не смог разобрать твое голосовое сообщение. Попробуешь еще раз, или скажи текстом?")
 
     except Exception as e:
         logger.error(f"Telegram_Bot: Ошибка при обработке голосового сообщения: {e}")
         import traceback
+
         traceback.print_exc()
         await update.message.reply_text("Ой, что-то пошло не так при обработке твоего голоса. Попробуй позже.")
     finally:
@@ -218,6 +220,7 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
                 logger.info(f"Telegram_Bot: Временный аудиофайл {downloaded_file_path} удален.")
             except Exception as e_del:
                 logger.error(f"Telegram_Bot: Не удалось удалить временный аудиофайл {downloaded_file_path}: {e_del}")
+
 
 def run_bot() -> None:
     if not TELEGRAM_TOKEN:
@@ -240,10 +243,11 @@ def run_bot() -> None:
     except Exception as e:
         logger.critical(f"Критическая ошибка при запуске Telegram-бота: {e}")
         import traceback
+
         traceback.print_exc()
-        
+
     logger.info("Нокс (Telegram Бот) остановлен.")
+
 
 if __name__ == "__main__":
     run_bot()
-    
