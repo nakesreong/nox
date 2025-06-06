@@ -1,45 +1,44 @@
 import importlib
-import os
-import sys
-
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
-math_handler = importlib.import_module('app.intent_handlers.math_operation_handler')
+import pytest
 
 
-def test_valid_expression_addition():
+@pytest.fixture(scope="module")
+def math_handler(add_project_root_to_sys_path):
+    return importlib.import_module('app.intent_handlers.math_operation_handler')
+
+
+def test_valid_expression_addition(math_handler):
     result = math_handler.handle_math_operation({'expression': '2 + 3 * 4'})
     assert result['success'] is True
     assert result['result'] == 14
 
 
-def test_valid_expression_integer_conversion():
+def test_valid_expression_integer_conversion(math_handler):
     result = math_handler.handle_math_operation({'expression': '6 / 3'})
     assert result['success'] is True
     assert result['result'] == 2
 
 
-def test_disallowed_characters():
+def test_disallowed_characters(math_handler):
     result = math_handler.handle_math_operation({'expression': '2 + two'})
     assert result['success'] is False
     assert 'disallowed characters' in result['details_or_error'].lower()
 
 
-def test_zero_division_error():
+def test_zero_division_error(math_handler):
     result = math_handler.handle_math_operation({'expression': '10 / 0'})
     assert result['success'] is False
     assert result.get('error_type') == 'ZeroDivisionError'
 
 
-def test_syntax_error():
+def test_syntax_error(math_handler):
     result = math_handler.handle_math_operation({'expression': '10 /'})
     assert result['success'] is False
     assert result.get('error_type') == 'SyntaxError'
 
 
-def test_missing_expression():
+def test_missing_expression(math_handler):
     result = math_handler.handle_math_operation({})
     assert result['success'] is False
     assert result['action_performed'] == 'math_calculation_error'
+
