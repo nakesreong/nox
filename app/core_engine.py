@@ -2,7 +2,7 @@
 
 import yaml
 import os
-import json  # Для возможного логирования
+import json  # For optional logging
 
 from . import nlu_engine
 from . import dispatcher
@@ -20,19 +20,23 @@ class CoreEngine:
         print("Core Engine инициализирован.")
 
     def process_user_command(self, user_command_text: str, is_voice_command: bool = False) -> dict:
-        """
-        Обрабатывает текстовую (или распознанную из голоса) команду пользователя.
-        is_voice_command: Флаг, указывающий, пришла ли команда от голосового ввода.
-        Возвращает словарь с:
-          - nlu_result: результат от NLU
-          - acknowledgement_response: (только для is_voice_command) первый ответ-подтверждение от LLM
-          - action_result_from_handler: "технический" результат от обработчика интента
-          - final_status_response: финальный ответ о результате выполнения или ошибке
+        """Process a text command (or one recognized from voice).
+
+        Args:
+            user_command_text: The command text to process.
+            is_voice_command: Whether the command originated from STT.
+
+        Returns:
+            Dictionary with keys:
+              - nlu_result: structured data from the NLU module
+              - acknowledgement_response: initial LLM acknowledgement for voice commands
+              - action_result_from_handler: raw result from the intent handler
+              - final_status_response: final user-facing message
         """
         if not self.config_data:
             error_msg = "Ошибка CoreEngine: Конфигурация NLU не была загружена."
             print(error_msg)
-            # Для единообразия возвращаем словарь с ключом для финального ответа
+            # Return a dictionary with final_status_response for consistency
             return {
                 "error": error_msg,
                 "final_status_response": "Извини, Искра, у меня сейчас технические шоколадки с конфигурацией. Попробуй позже.",
@@ -40,23 +44,23 @@ class CoreEngine:
 
         print(f"\nCoreEngine: Получена команда от пользователя: '{user_command_text}' (Голосовая: {is_voice_command})")
 
-        # 1. Получаем структурированный NLU-ответ (интент, сущности)
+        # 1. Get structured NLU response (intent, entities)
         structured_nlu_result = nlu_engine.get_structured_nlu_from_text(user_command_text)
         print(f"CoreEngine: Результат от NLU Engine (структурированный): {structured_nlu_result}")
 
         acknowledgement_response = None
         action_result_from_handler = None
-        # Ответ по умолчанию, если что-то пойдет совсем не так
+        # Default reply if something goes very wrong
         final_status_response = "Ой, Искра, что-то пошло совсем не по плану, и я не знаю, что сказать."
 
         if structured_nlu_result and not structured_nlu_result.get("error"):
             intent = structured_nlu_result.get("intent")
             entities = structured_nlu_result.get("entities", {})
 
-            # --- ЭТАП 1 (для голосовых команд): Генерация Подтверждения Понимания ---
-            # ВЕСЬ ЭТОТ БЛОК IF IS_VOICE_COMMAND НИЖЕ МОЖНО ПОЛНОСТЬЮ УДАЛИТЬ ИЛИ ЗАКОММЕНТИРОВАТЬ
+            # --- STEP 1 (voice commands): generate acknowledgement ---
+            # The entire IF IS_VOICE_COMMAND block below can be removed or commented out
             # if is_voice_command:
-            #     print(f"CoreEngine: Голосовая команда. Генерируем подтверждение для интента '{intent}'...")
+            #     print(f"CoreEngine: Voice command. Generating acknowledgement for intent '{intent}'...")
             #     nlu_ack_payload_for_llm = {
             #         "response_type": "nlu_acknowledgement",
             #         "understood_intent": intent,
@@ -66,45 +70,45 @@ class CoreEngine:
             #         nlu_ack_payload_for_llm,
             #         user_command_text
             #     )
-            #     print(f"CoreEngine: Сгенерировано подтверждение: '{acknowledgement_response}'")
+            #     print(f"CoreEngine: Acknowledgement generated: '{acknowledgement_response}'")
 
-            # --- ЭТАП 2: Выполнение Команды (если есть интент) и Генерация Финального Ответа ---
+            # --- STEP 2: Execute command (if intent) and generate final response ---
             if intent:
-                # Если NLU вернул "general_chat", мы можем это передать в dispatcher,
-                # который вызовет fallback_handler, а тот подготовит правильный action_result для LLM.
+                # If NLU returned "general_chat" we pass it to the dispatcher,
+                # which calls the fallback handler to prepare an action_result for the LLM.
                 print(f"CoreEngine: Распознан интент: {intent}, Сущности: {entities}. Вызываем диспетчер...")
                 action_result_from_handler = dispatcher.dispatch(intent, entities, original_user_query=user_command_text)
                 print(f"CoreEngine: Результат от Диспетчера (обработчика интента): {action_result_from_handler}")
 
                 if action_result_from_handler and isinstance(action_result_from_handler, dict):
-                    # Добавляем тип, чтобы "супер-инструкция" знала, что это результат действия (Сценарий 2)
-                    # Проверяем, не является ли это "игнорируемым" статусом от диспетчера
+                    # Add the type so the "super instruction" knows this is an action result (Scenario 2)
+                    # Check if the dispatcher chose to ignore the command
                     if action_result_from_handler.get("status") == "ignored":
-                        print(f"CoreEngine: Команда с интентом '{intent}' будет проигнорирована диспетчером (нет ответа пользователю).")
-                        final_status_response = None  # Явно указываем, что ответа не будет
+                        print(f"CoreEngine: intent '{intent}' will be ignored by dispatcher (no user reply).")
+                        final_status_response = None  # explicitly indicate no response
                     else:
                         action_result_from_handler["response_type"] = "action_outcome"
                         final_status_response = nlu_engine.generate_natural_response(action_result_from_handler, user_command_text)
-                # Если хендлер вернул что-то странное или None (например, для "ignored" интента, если бы не было явной проверки выше)
+                # Handler returned something unexpected or None (for an ignored intent)
                 else:
                     if action_result_from_handler is None or (
                         isinstance(action_result_from_handler, dict) and action_result_from_handler.get("status") == "ignored"
                     ):
-                        # Это условие может быть избыточным из-за проверки выше, но для надежности
-                        print(f"CoreEngine: Команда с интентом '{intent}' проигнорирована или обработчик вернул None.")
+                        # Extra safety check despite the one above
+                        print(f"CoreEngine: intent '{intent}' ignored or handler returned None.")
                         final_status_response = None
                     else:
                         error_payload_for_llm = {
-                            # Все равно это результат "действия" (ошибочного)
+                            # Still treat this as an action outcome with error
                             "response_type": "action_outcome",
                             "success": False,
-                            "details_or_error": "Произошла внутренняя ошибка при выполнении команды (диспетчер вернул неожиданный результат).",
+                            "details_or_error": "Internal error while executing the command (dispatcher returned an unexpected result).",
                             "user_query": user_command_text,
                         }
                         final_status_response = nlu_engine.generate_natural_response(error_payload_for_llm, user_command_text)
                         print(f"CoreEngine: Диспетчер вернул неожиданный результат: {action_result_from_handler}")
 
-            # Если интент не распознан NLU (но при этом нет structured_nlu_result.get("error")) - очень редкий случай
+            # Intent not recognized by NLU (and no explicit NLU error) - a rare case
             else:
                 nlu_unknown_payload_for_llm = {
                     "response_type": "nlu_error_report",
@@ -115,12 +119,12 @@ class CoreEngine:
                 final_status_response = nlu_engine.generate_natural_response(nlu_unknown_payload_for_llm, user_command_text)
                 print(f"CoreEngine: Интент не распознан NLU (но нет явной ошибки NLU). Ответ от LLM: {final_status_response}")
 
-        # Если была ошибка NLU (парсинг, валидация)
+        # If there was an NLU error (parsing, validation)
         elif structured_nlu_result and structured_nlu_result.get("error"):
             nlu_error_payload_for_llm = {
-                # Сигнал для "супер-инструкции" (Сценарий 3)
+                # Signal for the "super instruction" (Scenario 3)
                 "response_type": "nlu_error_report",
-                "success": False,  # Явно указываем, что это неудача
+                "success": False,  # explicitly mark as failure
                 "details_or_error": (
                     "Проблема с пониманием твоего запроса. Ошибка NLU: "
                     f"{structured_nlu_result.get('error')}. "
@@ -136,20 +140,20 @@ class CoreEngine:
 
         return {
             "nlu_result": structured_nlu_result,
-            # Будет None для голосовых, если отключено
+            # Will be None for voice commands if disabled
             "acknowledgement_response": acknowledgement_response,
-            "action_result_from_handler": action_result_from_handler,  # Переименовал для ясности
+            "action_result_from_handler": action_result_from_handler,  # renamed for clarity
             "final_status_response": final_status_response,
         }
 
 
-# --- Тестовый блок для проверки core_engine ---
+# --- Test block for core_engine ---
 if __name__ == "__main__":
-    # Изменил имя для ясности
-    print("Запуск тестового скрипта Core Engine (v_dual_response_logic_refined_ack_disabled)...")
+    # Script entry for manual testing
+    print("Starting Core Engine test script (v_dual_response_logic_refined_ack_disabled)...")
     try:
         engine = CoreEngine()
-        if engine.config_data:  # Убедимся, что конфиг загружен
+        if engine.config_data:  # ensure config is loaded
             test_cases = [
                 {
                     "command": "включи свет",
@@ -160,12 +164,12 @@ if __name__ == "__main__":
                     "command": "сделай теплый свет",
                     "is_voice": True,
                     "description": "Голосовая команда - теплый свет (ожидаем 1 ответ, т.к. ack отключен)",
-                },  # Изменено ожидание
+                },
                 {
                     "command": "расскажи анекдот",
                     "is_voice": True,
                     "description": "Голосовая команда - анекдот (ожидаем 1 ответ, т.к. ack отключен)",
-                },  # Изменено ожидание
+                },
                 {
                     "command": "какая-то абракадабра",
                     "is_voice": False,
@@ -182,14 +186,14 @@ if __name__ == "__main__":
                 result = engine.process_user_command(command, is_voice_command=is_voice)
 
                 print(f"CoreEngine: Итоговый структурированный результат для интерфейса: ")
-                # Печатаем красиво для отладки
+                # Pretty-print for debugging
                 print(json.dumps(result, indent=2, ensure_ascii=False))
 
                 if result.get("acknowledgement_response"):
                     print(f"  >>> Промежуточный ответ (подтверждение) от Нокса: {result.get('acknowledgement_response')}")
                 if result.get("final_status_response"):
                     print(f"  >>> Финальный ответ (результат/ошибка) от Нокса: {result.get('final_status_response')}")
-                # Если нет ни того, ни другого (для проигнорированных)
+                # If there was no acknowledgement or final response (ignored)
                 elif not result.get("acknowledgement_response"):
                     print(f"  >>> Нокс решил промолчать на эту команду (final_status_response is None).")
 
