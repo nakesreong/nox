@@ -2,28 +2,32 @@
 
 import whisper
 import os
-import yaml # <--- ДОБАВЛЯЕМ ИМПОРТ YAML
-from pathlib import Path # <--- ДОБАВЛЯЕМ ИМПОРТ PATH (если его еще нет)
+import yaml  # <--- ДОБАВЛЯЕМ ИМПОРТ YAML
+from pathlib import Path  # <--- ДОБАВЛЯЕМ ИМПОРТ PATH (если его еще нет)
 
 # --- Загрузка конфигурации STT (размер модели) ---
 STT_CONFIG_DATA = None
-MODEL_SIZE_FROM_CONFIG = "base" # Значение по умолчанию, если конфиг не загрузится
+MODEL_SIZE_FROM_CONFIG = "base"  # Значение по умолчанию, если конфиг не загрузится
 
 try:
     # Путь к settings.yaml (аналогично как в других модулях)
     current_dir_stt = os.path.dirname(os.path.abspath(__file__))
-    project_root_stt = os.path.dirname(current_dir_stt) # Выходим из app/ в корень проекта
-    config_path_stt = os.path.join(project_root_stt, 'configs', 'settings.yaml')
-    
-    with open(config_path_stt, 'r', encoding='utf-8') as f:
+    # Выходим из app/ в корень проекта
+    project_root_stt = os.path.dirname(current_dir_stt)
+    config_path_stt = os.path.join(project_root_stt, "configs", "settings.yaml")
+
+    with open(config_path_stt, "r", encoding="utf-8") as f:
         STT_CONFIG_DATA = yaml.safe_load(f)
-    
-    if STT_CONFIG_DATA and 'stt_engine' in STT_CONFIG_DATA and \
-       'whisper_model_size' in STT_CONFIG_DATA['stt_engine']:
-        MODEL_SIZE_FROM_CONFIG = STT_CONFIG_DATA['stt_engine']['whisper_model_size']
+
+    if STT_CONFIG_DATA and "stt_engine" in STT_CONFIG_DATA and "whisper_model_size" in STT_CONFIG_DATA["stt_engine"]:
+        MODEL_SIZE_FROM_CONFIG = STT_CONFIG_DATA["stt_engine"]["whisper_model_size"]
         print(f"STT_Engine: Размер модели Whisper будет использован из конфига: '{MODEL_SIZE_FROM_CONFIG}'")
     else:
-        print(f"STT_Engine: Параметр 'whisper_model_size' не найден в configs/settings.yaml (секция stt_engine). Используется значение по умолчанию: '{MODEL_SIZE_FROM_CONFIG}'")
+        print(
+            "STT_Engine: Параметр 'whisper_model_size' не найден в "
+            "configs/settings.yaml (секция stt_engine). Используется значение "
+            f"по умолчанию: '{MODEL_SIZE_FROM_CONFIG}'"
+        )
 
 except FileNotFoundError:
     print(f"STT_Engine: Файл configs/settings.yaml не найден. Используется модель Whisper по умолчанию: '{MODEL_SIZE_FROM_CONFIG}'")
@@ -37,14 +41,15 @@ except Exception as e_conf:
 # --- Загрузка модели Whisper ---
 STT_MODEL = None
 # Теперь используем MODEL_SIZE_FROM_CONFIG
-MODEL_TO_LOAD = MODEL_SIZE_FROM_CONFIG 
+MODEL_TO_LOAD = MODEL_SIZE_FROM_CONFIG
 
 try:
     print(f"STT_Engine: Загрузка модели Whisper '{MODEL_TO_LOAD}'...")
     # download_root можно будет тоже брать из конфига, если решим его использовать
     # download_root_path = STT_CONFIG_DATA.get('stt_engine', {}).get('download_root') if STT_CONFIG_DATA else None
     # STT_MODEL = whisper.load_model(MODEL_TO_LOAD, download_root=download_root_path if download_root_path else None)
-    STT_MODEL = whisper.load_model(MODEL_TO_LOAD)  # Указываем device="cpu" для явного использования CPU
+    # Указываем device="cpu" для явного использования CPU
+    STT_MODEL = whisper.load_model(MODEL_TO_LOAD)
     # Если нужно использовать GPU, можно указать device="cuda" или "cuda:0" для первого доступного GPU
     print(f"STT_Engine: Модель Whisper '{MODEL_TO_LOAD}' успешно загружена.")
 except Exception as e:
@@ -84,13 +89,15 @@ def transcribe_audio_to_text(audio_file_path: str) -> str | None:
 
         recognized_text = result["text"]
         print(f"STT_Engine: Распознанный текст: '{recognized_text}'")
-        return recognized_text.strip() # Возвращаем текст без лишних пробелов
+        return recognized_text.strip()  # Возвращаем текст без лишних пробелов
 
     except Exception as e:
         print(f"Ошибка STT_Engine: Произошла ошибка во время распознавания речи: {e}")
         import traceback
-        traceback.print_exc() # Выведем полный traceback для отладки
+
+        traceback.print_exc()  # Выведем полный traceback для отладки
         return None
+
 
 # --- Тестовый блок для проверки stt_engine ---
 if __name__ == "__main__":
@@ -104,12 +111,12 @@ if __name__ == "__main__":
 
         # !!! ЗАМЕНИ ЭТО НА РЕАЛЬНЫЙ ПУТЬ К ТВОЕМУ ТЕСТОВОМУ АУДИОФАЙЛУ !!!
         # Например, если ты сохранишь его в корень проекта как "test_voice.ogg":
-        # test_audio_path = "../test_voice.ogg" 
+        # test_audio_path = "../test_voice.ogg"
         # (Если запускать python3 app/stt_engine.py из корня проекта, то "./test_voice.ogg")
 
         # Пока создадим "заглушку" для пути, чтобы скрипт не падал, если файла нет.
         # Пожалуйста, создай тестовый аудиофайл и укажи к нему путь.
-        test_audio_path_example = "test_voice_message.ogg" # Пример имени
+        test_audio_path_example = "test_voice_message.ogg"  # Пример имени
 
         # Попробуем найти его в корне проекта
         project_root_stt = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
