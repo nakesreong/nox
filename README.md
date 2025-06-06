@@ -133,6 +133,20 @@ Interact with "Nox" via the Telegram bot. Send text or voice commands like:
 * "Сколько будет (5+5)\*10?"
 * "25 в кубе"
 
+## 🧪 Running Tests
+
+Install dependencies with:
+
+```bash
+pip install -r requirements.txt
+```
+
+Then run the test suite:
+
+```bash
+pytest
+```
+
 ## 📝 To-Do / Future Enhancements
 
 * **Direct Microphone & Wake-Word:** Implement direct microphone access with wake-word detection for a true hands-free experience.
