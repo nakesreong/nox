@@ -9,8 +9,8 @@ standalone for debugging.
 
 import whisper
 import os
-import yaml  # <--- ДОБАВЛЯЕМ ИМПОРТ YAML
-from pathlib import Path  # <--- ДОБАВЛЯЕМ ИМПОРТ PATH (если его еще нет)
+import yaml  # used for reading configuration files
+from pathlib import Path  # provides cross-platform path operations
 
 # --- Загрузка конфигурации STT (размер модели) ---
 STT_CONFIG_DATA = None
