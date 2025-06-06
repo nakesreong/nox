@@ -173,11 +173,3 @@ def set_color_temperature(temperature_value, entity_ids: list = None):
     # Calling light.turn_on with color_temp_kelvin will also turn on the light if it was off
     return turn_on(entity_ids=targets, kelvin=kelvin_to_set)
 
-# Example usage of light actions
-if __name__ == "__main__":
-    if not (HA_URL and HA_TOKEN and DEFAULT_LIGHT_ENTITY_IDS):
-        print("Home Assistant configuration not loaded. Example calls will be skipped.")
-    else:
-        print(turn_on(brightness_percent=100))
-        print(set_color_temperature("warm"))
-        print(turn_off())
