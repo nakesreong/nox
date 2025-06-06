@@ -1,17 +1,19 @@
 import importlib
-import os
-import sys
 from unittest import mock
-
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
-handler = importlib.import_module('app.intent_handlers.device_control_handler')
-light_actions = importlib.import_module('app.actions.light_actions')
+import pytest
 
 
-def test_turn_on_calls_light_actions(monkeypatch):
+@pytest.fixture(scope="module")
+def handler(add_project_root_to_sys_path):
+    return importlib.import_module('app.intent_handlers.device_control_handler')
+
+
+@pytest.fixture(scope="module")
+def light_actions(add_project_root_to_sys_path):
+    return importlib.import_module('app.actions.light_actions')
+
+
+def test_turn_on_calls_light_actions(monkeypatch, handler, light_actions):
     mock_turn_on = mock.Mock(return_value={'success': True, 'message': 'ok'})
     monkeypatch.setattr(light_actions, 'turn_on', mock_turn_on)
     result = handler.handle_device_control({'target_device': 'light', 'action': 'turn_on'})
@@ -20,7 +22,7 @@ def test_turn_on_calls_light_actions(monkeypatch):
     assert result['action_performed'] == 'turn_on'
 
 
-def test_setting_brightness_and_kelvin(monkeypatch):
+def test_setting_brightness_and_kelvin(monkeypatch, handler, light_actions):
     mock_turn_on = mock.Mock(return_value={'success': True, 'message': 'ok'})
     monkeypatch.setattr(light_actions, 'turn_on', mock_turn_on)
     entities = {
@@ -35,7 +37,7 @@ def test_setting_brightness_and_kelvin(monkeypatch):
     assert result['color_temp_kelvin_set'] == 4000
 
 
-def test_setting_qualitative_temperature(monkeypatch):
+def test_setting_qualitative_temperature(monkeypatch, handler, light_actions):
     mock_turn_on = mock.Mock(return_value={'success': True, 'message': 'ok'})
     monkeypatch.setattr(light_actions, 'turn_on', mock_turn_on)
     entities = {'target_device': 'light', 'action': 'setting', 'color_temp_qualitative': 'warm'}
@@ -45,7 +47,7 @@ def test_setting_qualitative_temperature(monkeypatch):
     assert result['color_temp_kelvin_set'] == 2700
 
 
-def test_setting_invalid_temperature(monkeypatch):
+def test_setting_invalid_temperature(monkeypatch, handler, light_actions):
     mock_turn_on = mock.Mock(return_value={'success': True, 'message': 'ok'})
     monkeypatch.setattr(light_actions, 'turn_on', mock_turn_on)
     entities = {'target_device': 'light', 'action': 'setting', 'color_temp_qualitative': 'invalid'}
@@ -55,7 +57,7 @@ def test_setting_invalid_temperature(monkeypatch):
     assert 'Unknown qualitative temperature' in result['details_or_error']
 
 
-def test_unknown_target_device(monkeypatch):
+def test_unknown_target_device(monkeypatch, handler, light_actions):
     mock_turn_on = mock.Mock(return_value={'success': True, 'message': 'ok'})
     monkeypatch.setattr(light_actions, 'turn_on', mock_turn_on)
     result = handler.handle_device_control({'target_device': 'fan', 'action': 'turn_on'})
@@ -64,7 +66,7 @@ def test_unknown_target_device(monkeypatch):
     assert result['action_performed'] == 'unknown_target_device'
 
 
-def test_unknown_light_action(monkeypatch):
+def test_unknown_light_action(monkeypatch, handler, light_actions):
     mock_turn_on = mock.Mock(return_value={'success': True, 'message': 'ok'})
     monkeypatch.setattr(light_actions, 'turn_on', mock_turn_on)
     entities = {'target_device': 'light', 'action': 'blink'}
@@ -72,3 +74,4 @@ def test_unknown_light_action(monkeypatch):
     mock_turn_on.assert_not_called()
     assert result['success'] is False
     assert result['action_performed'] == 'unknown_light_action'
+
