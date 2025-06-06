@@ -26,12 +26,12 @@ try:
     from app.core_engine import CoreEngine
     from app.stt_engine import transcribe_audio_to_text
 except ModuleNotFoundError as e:
-    print(f"Критическая ошибка Telegram-бота: Не удалось импортировать модули: {e}.")
-    print(f"Убедитесь, что app/core_engine.py и app/stt_engine.py существуют и доступны.")
-    print(f"Текущий sys.path: {sys.path}")
+    print(f"Critical Telegram bot error: failed to import modules: {e}.")
+    print("Ensure app/core_engine.py and app/stt_engine.py exist and are accessible.")
+    print(f"Current sys.path: {sys.path}")
     sys.exit(1)
 except Exception as import_err:
-    print(f"Критическая ошибка Telegram-бота при импорте модулей: {import_err}")
+    print(f"Critical Telegram bot error during module import: {import_err}")
     sys.exit(1)
 
 
@@ -39,9 +39,9 @@ except Exception as import_err:
 TEMP_AUDIO_DIR = os.path.join(project_root_bot, "temp_audio")
 try:
     Path(TEMP_AUDIO_DIR).mkdir(parents=True, exist_ok=True)
-    print(f"Telegram_Bot: Временная директория для аудио: {TEMP_AUDIO_DIR}")
+    print(f"Telegram_Bot: Temporary audio directory: {TEMP_AUDIO_DIR}")
 except Exception as e_mkdir:
-    print(f"Критическая ошибка Telegram-бота: Не удалось создать временную директорию {TEMP_AUDIO_DIR}: {e_mkdir}")
+    print(f"Critical Telegram bot error: failed to create temp directory {TEMP_AUDIO_DIR}: {e_mkdir}")
     sys.exit(1)
 
 # Load configuration
@@ -55,18 +55,18 @@ try:
 
     TELEGRAM_TOKEN = config.get("telegram_bot", {}).get("token")
     if not TELEGRAM_TOKEN or TELEGRAM_TOKEN == "YOUR_TELEGRAM_BOT_TOKEN":
-        raise ValueError("Токен Telegram-бота не найден или является плейсхолдером в configs/settings.yaml")
+        raise ValueError("Telegram bot token not found or is a placeholder in configs/settings.yaml")
 
     ALLOWED_USER_IDS = config.get("telegram_bot", {}).get("allowed_user_ids", [])
     if not ALLOWED_USER_IDS:
-        print("ПРЕДУПРЕЖДЕНИЕ: Список разрешенных User ID (allowed_user_ids) в configs/settings.yaml пуст или не найден! Бот будет доступен всем.")
+        print("WARNING: allowed_user_ids list in configs/settings.yaml is empty or missing! Bot will be open to everyone.")
     else:
         print(f"Telegram_Bot: Список разрешенных User ID загружен: {ALLOWED_USER_IDS}")
 
-    print("Telegram_Bot: Конфигурация успешно загружена.")
+    print("Telegram_Bot: Configuration loaded successfully.")
 
 except Exception as e:
-    print(f"Критическая ошибка Telegram-бота: Не удалось загрузить конфигурацию: {e}")
+    print(f"Critical Telegram bot error: failed to load configuration: {e}")
     sys.exit(1)
 
 # Configure logging
@@ -79,10 +79,10 @@ CORE_ENGINE_INSTANCE = None
 try:
     CORE_ENGINE_INSTANCE = CoreEngine()
     if not CORE_ENGINE_INSTANCE.config_data:
-        logger.error("Telegram_Bot: CoreEngine был создан, но его конфигурация NLU не загружена.")
+        logger.error("Telegram_Bot: CoreEngine created but NLU configuration not loaded.")
 except Exception as e:
-    logger.error(f"Критическая ошибка Telegram-бота при инициализации CoreEngine: {e}")
-    print("Telegram_Bot: Не удалось инициализировать CoreEngine. Запуск бота отменен.")
+    logger.error(f"Critical Telegram bot error during CoreEngine initialization: {e}")
+    print("Telegram_Bot: Failed to initialize CoreEngine. Bot start aborted.")
     sys.exit(1)
 
 
@@ -130,11 +130,11 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(response_to_user)
         return
 
-    # Для текстовых команд is_voice_command = False
+    # For text commands is_voice_command = False
     engine_response_dict = CORE_ENGINE_INSTANCE.process_user_command(user_text, is_voice_command=False)
     logger.info(f"Telegram_Bot: Полный ответ от CoreEngine для {user_name} (текст): {engine_response_dict}")
 
-    # У текстовых команд нет acknowledgement_response, только final_status_response
+    # Text commands have no acknowledgement_response, only final_status_response
     response_to_user = engine_response_dict.get("final_status_response")
 
     if response_to_user:
@@ -183,7 +183,7 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
                 await update.message.reply_text(response_to_user)
                 return
 
-            # Передаем распознанный текст в CoreEngine, указывая, что это голосовая команда
+            # Pass the recognized text to CoreEngine, marking it as a voice command
             engine_response_dict = CORE_ENGINE_INSTANCE.process_user_command(recognized_text, is_voice_command=True)
             logger.info(f"Telegram_Bot: Полный ответ от CoreEngine для {user_name} (голос -> текст '{recognized_text}'): {engine_response_dict}")
 
@@ -191,12 +191,12 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
             acknowledgement = engine_response_dict.get("acknowledgement_response")
             final_status = engine_response_dict.get("final_status_response")
 
-            if acknowledgement:  # Сначала отправляем подтверждение, если оно есть
+            if acknowledgement:  # Send acknowledgement first if present
                 await update.message.reply_text(acknowledgement)
 
-            if final_status:  # Затем отправляем финальный результат/ошибку
+            if final_status:  # Then send the final result/error
                 await update.message.reply_text(final_status)
-            elif not acknowledgement:  # Если не было ни подтверждения, ни финального ответа
+            elif not acknowledgement:  # If there was neither acknowledgement nor final response
                 logger.info(f"Telegram_Bot: Для распознанной команды '{recognized_text}' от {user_name} нет никакого ответа.")
 
         else:  # Если STT не смог распознать текст
@@ -233,16 +233,16 @@ def run_bot() -> None:
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
     application.add_handler(MessageHandler(filters.VOICE, handle_voice_message))
 
-    logger.info("Нокс (Telegram Бот) запускается... Готов слушать твои команды (текст и голос), Искра!")
+    logger.info("Nox (Telegram Bot) starting... Ready to receive your commands (text and voice), Iskra!")
     try:
         application.run_polling(allowed_updates=Update.ALL_TYPES)
     except Exception as e:
-        logger.critical(f"Критическая ошибка при запуске Telegram-бота: {e}")
+        logger.critical(f"Critical error while starting Telegram bot: {e}")
         import traceback
 
         traceback.print_exc()
 
-    logger.info("Нокс (Telegram Бот) остановлен.")
+    logger.info("Nox (Telegram Bot) stopped.")
 
 
 # Manual test example: run this file directly to start the Telegram bot.

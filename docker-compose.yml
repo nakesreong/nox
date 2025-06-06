@@ -13,23 +13,23 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1 # или 'all' если хочешь отдать все GPU
+              count: 1 # use 'all' if you want to allocate all GPUs
               capabilities: [gpu]
     restart: unless-stopped
 
   homeassistant:
-    image: homeassistant/home-assistant:stable # Используем стабильную версию HA
+    image: homeassistant/home-assistant:stable # Use the stable HA version
     container_name: iskra_homeassistant
     ports:
-      - "127.0.0.1:8123:8123" # Порт для веб-интерфейса HA
+      - "127.0.0.1:8123:8123" # Port for the HA web interface
     volumes:
-      - ./homeassistant_config:/config # Проброс директории для конфигурации HA
-      - /etc/localtime:/etc/localtime:ro # Синхронизация времени с хостом (важно для автоматизаций)
-    privileged: true # Иногда требуется для доступа к некоторым устройствам, но можно попробовать и без, если не заработает
-                     # или заменить на проброс конкретных устройств, если знаем каких. Для начала можно так.
+      - ./homeassistant_config:/config # Mount configuration directory for HA
+      - /etc/localtime:/etc/localtime:ro # Sync time with host (important for automations)
+    privileged: true # May be required for some devices; try without first
+                     # or forward specific devices if known. Start like this for now.
     restart: unless-stopped
 
 volumes:
   ollama_data:
-  homeassistant_config: # Docker сам создаст этот именованный том, если директории ./homeassistant_config не будет
-                        # Для большей предсказуемости, как и с ollama_data, лучше создать папку ./homeassistant_config вручную
+  homeassistant_config: # Docker will create this named volume if ./homeassistant_config is absent
+                        # For predictability, like with ollama_data, create ./homeassistant_config manually

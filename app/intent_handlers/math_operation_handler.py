@@ -1,6 +1,6 @@
 # app/intent_handlers/math_operation_handler.py
 
-import traceback  # Для вывода информации об ошибках
+import traceback  # For error details
 
 
 def handle_math_operation(entities: dict) -> dict:
@@ -15,7 +15,7 @@ def handle_math_operation(entities: dict) -> dict:
         return {
             "success": False,
             "action_performed": "math_calculation_error",
-            "details_or_error": "Не удалось найти математическое выражение для вычисления.",
+            "details_or_error": "Could not find a math expression to evaluate.",
             "expression_evaluated": None,
             "result": None,
         }
@@ -24,9 +24,9 @@ def handle_math_operation(entities: dict) -> dict:
 
     try:
 
-        # Простая проверка на наличие только разрешенных символов перед eval
-        # Это очень базовая защита, не исчерпывающая!
-        # Добавил % для остатка от деления
+        # Basic check to allow only certain characters before eval
+        # This is a minimal safeguard!
+        # Added % for modulo operations
         allowed_chars = set("0123456789.+-*/%() ")
         if not all(char in allowed_chars for char in expression_to_evaluate):
             error_msg = f"MathOperationHandler: Expression '{expression_to_evaluate}' contains disallowed characters."
@@ -34,28 +34,27 @@ def handle_math_operation(entities: dict) -> dict:
             return {
                 "success": False,
                 "action_performed": "math_calculation_error",
-                "details_or_error": "Выражение содержит недопустимые символы.",
+                "details_or_error": "Expression contains disallowed characters.",
                 "expression_evaluated": expression_to_evaluate,
                 "result": None,
             }
 
-        # Для более сложных функций, таких как 'sqrt', 'sin', 'cos', 'pow',
-        # нам нужно будет либо импортировать модуль math и разрешить их в eval,
-        # либо написать свой парсер. Пока ограничимся базовой арифметикой.
-        # Для 'в кубе' или 'в степени' NLU уже дает нам "25 ** 3", что eval поймет.
+        # For functions like 'sqrt', 'sin', 'cos', 'pow' we'd need to import math
+        # and allow them in eval or write our own parser. For now only basic arithmetic.
+        # For "to the power of" NLU already provides "25 ** 3" which eval understands.
 
         calculation_result = eval(expression_to_evaluate)
 
         print(f"MathOperationHandler: Expression '{expression_to_evaluate}' evaluated to: {calculation_result}")
 
-        # Попытаемся сделать результат более "красивым", если это float с .0 на конце
+        # Make the result nicer if it's a float ending with .0
         if isinstance(calculation_result, float) and calculation_result.is_integer():
             calculation_result = int(calculation_result)
 
         return {
             "success": True,
             "action_performed": "math_calculation_success",
-            "details_or_error": "Вычисление успешно выполнено.",
+            "details_or_error": "Calculation completed successfully.",
             "expression_evaluated": expression_to_evaluate,
             "result": calculation_result,
         }
@@ -66,7 +65,7 @@ def handle_math_operation(entities: dict) -> dict:
         return {
             "success": False,
             "action_performed": "math_calculation_error",
-            "details_or_error": "Деление на ноль невозможно.",
+            "details_or_error": "Division by zero is not allowed.",
             "error_type": "ZeroDivisionError",
             "expression_evaluated": expression_to_evaluate,
             "result": None,
@@ -77,7 +76,7 @@ def handle_math_operation(entities: dict) -> dict:
         return {
             "success": False,
             "action_performed": "math_calculation_error",
-            "details_or_error": "Ошибка в синтаксисе математического выражения.",
+            "details_or_error": "Syntax error in math expression.",
             "error_type": "SyntaxError",
             "expression_evaluated": expression_to_evaluate,
             "result": None,
@@ -85,11 +84,11 @@ def handle_math_operation(entities: dict) -> dict:
     except Exception as e:
         error_msg = f"MathOperationHandler: Unexpected error evaluating expression '{expression_to_evaluate}': {e}"
         print(error_msg)
-        traceback.print_exc()  # Выведем полный traceback для отладки
+        traceback.print_exc()  # Print full traceback for debugging
         return {
             "success": False,
             "action_performed": "math_calculation_error",
-            "details_or_error": f"Произошла непредвиденная ошибка при вычислении: {e}",
+            "details_or_error": f"Unexpected error during calculation: {e}",
             "error_type": type(e).__name__,
             "expression_evaluated": expression_to_evaluate,
             "result": None,
@@ -97,15 +96,15 @@ def handle_math_operation(entities: dict) -> dict:
 
 # Manual test example: run this module directly to test math operations.
 if __name__ == "__main__":
-    # Простые тесты для math_operation_handler
+    # Simple tests for math_operation_handler
     test_entities = [
         {"expression": "2 + 2"},
         {"expression": "100 - (200 / 5)"},
         {"expression": "3 * 3 - 5"},
         {"expression": "2 ** 10"},
-        {"expression": "10 / 0"},  # Ошибка деления на ноль
-        {"expression": "10 /"},  # Синтаксическая ошибка
-        # Недопустимые символы (базовая проверка)
+        {"expression": "10 / 0"},  # Division by zero error
+        {"expression": "10 /"},  # Syntax error
+        # Disallowed characters (basic check)
         {"expression": "print('hello')"},
     ]
 

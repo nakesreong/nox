@@ -11,7 +11,7 @@ COLOR_TEMPERATURE_PRESETS_KELVIN = {
     "cool": 6000,
 }
 
-# --- Загрузка конфигурации Home Assistant (остается как раньше) ---
+# --- Load Home Assistant configuration ---
 HA_URL = None
 HA_TOKEN = None
 DEFAULT_LIGHT_ENTITY_IDS = []
@@ -30,24 +30,24 @@ try:
     DEFAULT_LIGHT_ENTITY_IDS = config_la.get("home_assistant", {}).get("default_lights", ["light.room_1", "light.room_2", "light.room_3"])
 
     if not HA_URL or not HA_TOKEN:
-        raise ValueError("URL или токен Home Assistant не найдены в configs/settings.yaml")
+        raise ValueError("Home Assistant URL or token not found in configs/settings.yaml")
     if not DEFAULT_LIGHT_ENTITY_IDS:
-        print("Предупреждение Light_Actions: Список лампочек по умолчанию (default_lights) не найден или пуст.")
-    print("Light_Actions: Конфигурация Home Assistant и лампочки по умолчанию успешно загружены.")
+        print("Light_Actions warning: default_lights list not found or empty.")
+    print("Light_Actions: Home Assistant configuration and default lights loaded.")
 
 except Exception as e:
-    print(f"Критическая ошибка в Light_Actions: Не удалось загрузить конфигурацию HA: {e}")
+    print(f"Critical error in Light_Actions: Failed to load HA configuration: {e}")
     HA_URL = None
     HA_TOKEN = None
     DEFAULT_LIGHT_ENTITY_IDS = []
-# --- Конец загрузки конфигурации ---
+# --- End configuration loading ---
 
 
 def _call_ha_light_service(service_name: str, entity_ids: list, service_data: dict = None) -> dict:
     if not HA_URL or not HA_TOKEN:
-        return {"success": False, "error": "Light_Actions: Конфигурация Home Assistant не загружена."}
+        return {"success": False, "error": "Light_Actions: Home Assistant configuration not loaded."}
     if not entity_ids:
-        return {"success": False, "error": "Light_Actions: Не указаны entity_id для управления светом."}
+        return {"success": False, "error": "Light_Actions: No entity_id specified for controlling lights."}
 
     api_url = f"{HA_URL}/api/services/light/{service_name}"
     headers = {
@@ -65,18 +65,18 @@ def _call_ha_light_service(service_name: str, entity_ids: list, service_data: di
         response = requests.post(api_url, headers=headers, json=payload, timeout=10)
         response.raise_for_status()
         print(f"Light_Actions (HA Service Response): Status={response.status_code}, Content='{response.text[:100]}...'")
-        return {"success": True, "message": f"Сервис light.{service_name} для {entity_ids} успешно вызван."}
+        return {"success": True, "message": f"Home Assistant service light.{service_name} for {entity_ids} called successfully."}
 
     except requests.exceptions.HTTPError as http_err:
-        error_message = f"HTTP ошибка: {http_err}. Ответ: {http_err.response.text[:200]}"
+        error_message = f"HTTP error: {http_err}. Response: {http_err.response.text[:200]}"
         print(f"Light_Actions: {error_message}")
         return {"success": False, "error": error_message}
     except requests.exceptions.RequestException as req_err:
-        error_message = f"Сетевая ошибка: {req_err}"
+        error_message = f"Network error: {req_err}"
         print(f"Light_Actions: {error_message}")
         return {"success": False, "error": error_message}
     except Exception as e:
-        error_message = f"Непредвиденная ошибка: {e}"
+        error_message = f"Unexpected error: {e}"
         print(f"Light_Actions: {error_message}")
         return {"success": False, "error": error_message}
 
@@ -99,8 +99,8 @@ def turn_on(entity_ids: list = None, brightness_percent: int = None, kelvin: int
             return {"success": False, "error": "Яркость должна быть от 0 до 100%"}
         service_data["brightness_pct"] = brightness_percent
     if kelvin is not None:
-        # Мы можем добавить здесь проверку на допустимые значения Кельвинов для твоих лампочек,
-        # если ты их знаешь (например, 2000-6500K). Пока оставим простой проверкой.
+        # You can add validation for allowed Kelvin values for your bulbs
+        # if you know them (e.g., 2000-6500K). For now we keep a simple check.
         if kelvin < 1000 or kelvin > 10000:
             return {"success": False, "error": "Значение цветовой температуры (Kelvin) некорректно."}
         service_data["color_temp_kelvin"] = kelvin
@@ -164,7 +164,7 @@ def set_color_temperature(temperature_value, entity_ids: list = None):
     targets = entity_ids if entity_ids else DEFAULT_LIGHT_ENTITY_IDS
     kelvin_to_set = None
 
-    if isinstance(temperature_value, (int, float)):  # Если передано число - это Кельвины
+    if isinstance(temperature_value, (int, float)):  # Numeric value means Kelvin
         kelvin_to_set = int(temperature_value)
         print(f"Light_Actions: Установить цветовую температуру {kelvin_to_set}K для {targets}")
     elif isinstance(temperature_value, str) and temperature_value.lower() in COLOR_TEMPERATURE_PRESETS_KELVIN:
@@ -175,7 +175,7 @@ def set_color_temperature(temperature_value, entity_ids: list = None):
         print(f"Light_Actions: {error_msg}")
         return {"success": False, "error": error_msg}
 
-    # Сервис light.turn_on с color_temp_kelvin также включит свет, если он был выключен
+    # Calling light.turn_on with color_temp_kelvin will also turn on the light if it was off
     return turn_on(entity_ids=targets, kelvin=kelvin_to_set)
 
 # Example usage of light actions
