@@ -1,4 +1,12 @@
 # interfaces/telegram_bot.py
+"""Telegram interface for sending commands and receiving responses.
+
+The module configures a :class:`telegram.ext.Application` instance, loads bot
+settings from ``configs/settings.yaml`` and initializes :class:`app.core_engine.CoreEngine`.
+It defines handlers for text and voice messages that utilize speech-to-text and
+the core engine to process user requests.  ``run_bot`` launches the polling
+loop and is used when running this script directly.
+"""
 
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from telegram import Update
