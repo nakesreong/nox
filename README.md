@@ -89,7 +89,7 @@ This project is an exploration of what's possible with modern AI tools, local LL
 **Setup Steps:**
 1.  Clone the repository: `git clone https://github.com/nakesreong/iskra-vin.git` (Project name is Nox, repo name `iskra-vin` might be updated later)
 2.  Navigate to the project directory: `cd iskra-vin`
-3.  Create `configs/settings.yaml`. You might need to copy it from an example file if one is provided (`settings.yaml.example`) or create it manually. Fill in your API tokens (Telegram, Home Assistant), allowed user IDs, and other necessary configurations.
+3.  Copy `configs/settings.yaml.example` to `configs/settings.yaml` and fill in your API tokens (Telegram, Home Assistant), allowed user IDs, and other necessary configurations.
     **Ensure `settings.yaml` is listed in `.gitignore` to protect your secrets!**
     * Example `settings.yaml` structure:
         ```yaml
@@ -138,7 +138,7 @@ Interact with "Nox" via the Telegram bot. Send text or voice commands like:
 * **Advanced Calculator Features:**
     * Support for more complex mathematical functions (e.g., sqrt, sin, cos, log).
     * Consider a safer math expression parser than `eval()` for enhanced security if input sources expand.
-* **Create `settings.yaml.example`:** Provide a template for users.
+* **`settings.yaml.example` Template Provided:** Use this file as a starting point for your own configuration.
 * **Develop Sophisticated Dialogue Management:** For more complex, multi-turn conversations.
 * **Systemd Service / Full Dockerization:** Set up a systemd service for persistent bot operation or fully containerize the Nox application itself.
 * **Automated Testing:** Continue to implement and expand unit and integration tests (building on Codex's start, if applicable).
