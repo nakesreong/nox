@@ -99,6 +99,7 @@ def transcribe_audio_to_text(audio_file_path: str) -> str | None:
         return None
 
 
+# Manual test example: run this module directly to test STT.
 # --- Тестовый блок для проверки stt_engine ---
 if __name__ == "__main__":
     print("\n--- Запуск тестового скрипта STT Engine ---")

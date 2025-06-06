@@ -249,6 +249,7 @@ def generate_natural_response(action_result: dict, user_query: str = None) -> st
         return "Oops, something went wrong while I was trying to think of a reply."
 
 
+# Manual test example: run this module directly to try the NLU engine.
 # --- Test block for nlu_engine ---
 if __name__ == "__main__":
     print("Starting NLU Engine test script (v_with_pydantic_for_setting)...")

@@ -103,7 +103,7 @@ def handle_math_operation(entities: dict) -> dict:
             "result": None,
         }
 
-
+# Manual test example: run this module directly to test math operations.
 if __name__ == "__main__":
     # Простые тесты для math_operation_handler
     test_entities = [
