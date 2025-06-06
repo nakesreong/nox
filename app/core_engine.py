@@ -1,4 +1,12 @@
 # app/core_engine.py
+"""Core engine that orchestrates NLU processing and intent dispatching.
+
+The module exposes the :class:`CoreEngine` which accepts a user command,
+delegates natural language understanding to :mod:`nlu_engine`, routes the
+recognized intent to handlers via :mod:`dispatcher` and formulates a natural
+language reply.  It is used by the Telegram bot to process both text and voice
+commands through the ``process_user_command`` method.
+"""
 
 import yaml
 import os

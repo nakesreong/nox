@@ -1,4 +1,11 @@
 # app/stt_engine.py
+"""Speech-to-text engine based on the Whisper model.
+
+This module loads a Whisper model according to ``configs/settings.yaml`` and
+provides :func:`transcribe_audio_to_text` for converting audio files to text. It
+is utilized by the Telegram bot for voice command recognition and can be run
+standalone for debugging.
+"""
 
 import whisper
 import os
