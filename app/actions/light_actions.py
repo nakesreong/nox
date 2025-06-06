@@ -1,8 +1,8 @@
 # app/actions/light_actions.py
 
 import requests
-import yaml
-import os
+
+from ..config_loader import load_settings
 
 # Predefined color temperatures in Kelvin
 COLOR_TEMPERATURE_PRESETS_KELVIN = {
@@ -17,12 +17,7 @@ HA_TOKEN = None
 DEFAULT_LIGHT_ENTITY_IDS = []
 
 try:
-    current_dir_la = os.path.dirname(os.path.abspath(__file__))
-    project_root_la = os.path.dirname(os.path.dirname(current_dir_la))
-    config_path_la = os.path.join(project_root_la, "configs", "settings.yaml")
-
-    with open(config_path_la, "r", encoding="utf-8") as f:
-        config_la = yaml.safe_load(f)
+    config_la = load_settings()
 
     HA_URL = config_la.get("home_assistant", {}).get("base_url")
     HA_TOKEN = config_la.get("home_assistant", {}).get("long_lived_access_token")
