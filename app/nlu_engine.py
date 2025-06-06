@@ -1,4 +1,13 @@
 # app/nlu_engine.py
+"""Natural language understanding using a local LLM via Ollama.
+
+This module loads configuration and LLM instructions from the ``configs``
+directory and exposes two main functions.  ``get_structured_nlu_from_text``
+parses user text into intents and entities validated with Pydantic, while
+``generate_natural_response`` produces a user-facing reply based on an action
+result.  It is used by the core engine and tests for handling conversational
+input.
+"""
 
 import yaml
 import requests
@@ -249,6 +258,7 @@ def generate_natural_response(action_result: dict, user_query: str = None) -> st
         return "Oops, something went wrong while I was trying to think of a reply."
 
 
+# Manual test example: run this module directly to try the NLU engine.
 # --- Test block for nlu_engine ---
 if __name__ == "__main__":
     print("Starting NLU Engine test script (v_with_pydantic_for_setting)...")

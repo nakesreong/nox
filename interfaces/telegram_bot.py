@@ -3,6 +3,7 @@
 This module exposes :func:`run_bot` which starts a Telegram bot capable of
 processing text and voice commands. Incoming messages are passed to the
 ``CoreEngine`` and responses are sent back to the user.
+
 """
 
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -244,6 +245,7 @@ def run_bot() -> None:
     logger.info("Нокс (Telegram Бот) остановлен.")
 
 
+# Manual test example: run this file directly to start the Telegram bot.
 if __name__ == "__main__":
     run_bot()
 
