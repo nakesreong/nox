@@ -66,7 +66,7 @@ This project is an exploration of what's possible with modern AI tools, local LL
     │       └── math_operation_handler.py   # Handles mathematical calculation intents (NEW)
     ├── configs/
     │   ├── __init__.py
-    │   ├── llm_instructions.yaml         # Prompts and instructions for the LLM
+    │   ├── llm_instructions.yaml         # Prompts and instructions for the LLM (create this file yourself; an example may appear as configs/llm_instructions.yaml.example)
     │   └── settings.yaml                 # Application settings, tokens, IDs
     ├── docker-compose.yml                # For Ollama and Home Assistant services
     ├── interfaces/
