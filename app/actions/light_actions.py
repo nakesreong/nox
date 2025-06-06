@@ -4,15 +4,12 @@ import requests
 import yaml
 import os
 
-# --- Пресеты для цветовой температуры (в Кельвинах) ---
-# Ты можешь настроить эти значения под свои лампочки и предпочтения
+# Predefined color temperatures in Kelvin
 COLOR_TEMPERATURE_PRESETS_KELVIN = {
-    "warm": 2700,  # Теплый белый
-    "natural": 4000,  # Нейтральный/естественный белый
-    "cool": 6000,  # Холодный белый
-    # Можно добавить еще, если нужно, например, "very_warm", "daylight"
+    "warm": 2700,
+    "natural": 4000,
+    "cool": 6000,
 }
-# --- Конец пресетов ---
 
 # --- Загрузка конфигурации Home Assistant (остается как раньше) ---
 HA_URL = None
@@ -47,8 +44,6 @@ except Exception as e:
 
 
 def _call_ha_light_service(service_name: str, entity_ids: list, service_data: dict = None) -> dict:
-    # ... (эта функция остается такой же, как в предыдущей версии, я ее не менял) ...
-    # --- НАЧАЛО КОДА _call_ha_light_service (из предыдущей версии) ---
     if not HA_URL or not HA_TOKEN:
         return {"success": False, "error": "Light_Actions: Конфигурация Home Assistant не загружена."}
     if not entity_ids:
@@ -84,12 +79,19 @@ def _call_ha_light_service(service_name: str, entity_ids: list, service_data: di
         error_message = f"Непредвиденная ошибка: {e}"
         print(f"Light_Actions: {error_message}")
         return {"success": False, "error": error_message}
-    # --- КОНЕЦ КОДА _call_ha_light_service ---
 
 
 def turn_on(entity_ids: list = None, brightness_percent: int = None, kelvin: int = None):
-    # ... (эта функция остается такой же, как в предыдущей версии) ...
-    # --- НАЧАЛО КОДА turn_on (из предыдущей версии) ---
+    """Turn on the specified lights.
+
+    Args:
+        entity_ids (list, optional): Light entity IDs. Defaults to DEFAULT_LIGHT_ENTITY_IDS.
+        brightness_percent (int, optional): Brightness from 0 to 100 percent.
+        kelvin (int, optional): Color temperature in Kelvin.
+
+    Returns:
+        dict: Result of the Home Assistant service call.
+    """
     targets = entity_ids if entity_ids else DEFAULT_LIGHT_ENTITY_IDS
     service_data = {}
     if brightness_percent is not None:
@@ -105,37 +107,59 @@ def turn_on(entity_ids: list = None, brightness_percent: int = None, kelvin: int
 
     print(f"Light_Actions: Включить свет для {targets} с данными: {service_data if service_data else 'нет доп. данных'}")
     return _call_ha_light_service("turn_on", targets, service_data if service_data else None)
-    # --- КОНЕЦ КОДА turn_on ---
 
 
 def turn_off(entity_ids: list = None):
-    # ... (эта функция остается такой же) ...
+    """Turn off the specified lights.
+
+    Args:
+        entity_ids (list, optional): Light entity IDs. Defaults to DEFAULT_LIGHT_ENTITY_IDS.
+
+    Returns:
+        dict: Result of the Home Assistant service call.
+    """
     targets = entity_ids if entity_ids else DEFAULT_LIGHT_ENTITY_IDS
     print(f"Light_Actions: Выключить свет для {targets}")
     return _call_ha_light_service("turn_off", targets)
 
 
 def toggle(entity_ids: list = None):
-    # ... (эта функция остается такой же) ...
+    """Toggle the state of the specified lights.
+
+    Args:
+        entity_ids (list, optional): Light entity IDs. Defaults to DEFAULT_LIGHT_ENTITY_IDS.
+
+    Returns:
+        dict: Result of the Home Assistant service call.
+    """
     targets = entity_ids if entity_ids else DEFAULT_LIGHT_ENTITY_IDS
     print(f"Light_Actions: Переключить свет для {targets}")
     return _call_ha_light_service("toggle", targets)
 
 
 def set_brightness(brightness_percent: int, entity_ids: list = None):
-    # ... (эта функция остается такой же) ...
+    """Set brightness for the specified lights.
+
+    Args:
+        brightness_percent (int): Brightness from 0 to 100 percent.
+        entity_ids (list, optional): Light entity IDs. Defaults to DEFAULT_LIGHT_ENTITY_IDS.
+
+    Returns:
+        dict: Result of the Home Assistant service call.
+    """
     print(f"Light_Actions: Установить яркость {brightness_percent}% для {entity_ids if entity_ids else DEFAULT_LIGHT_ENTITY_IDS}")
     return turn_on(entity_ids=entity_ids, brightness_percent=brightness_percent)
 
 
-# --- НОВАЯ ФУНКЦИЯ для установки цветовой температуры (использует turn_on) ---
-
-
 def set_color_temperature(temperature_value, entity_ids: list = None):
-    """
-    Устанавливает цветовую температуру света.
-    temperature_value: Может быть числом (Кельвины) или строкой ("warm", "cool", "natural").
-    Если entity_ids не указан, использует дефолтные.
+    """Set light color temperature.
+
+    Args:
+        temperature_value (int | str): Kelvin value or preset name ("warm", "natural", "cool").
+        entity_ids (list, optional): Light entity IDs. Defaults to DEFAULT_LIGHT_ENTITY_IDS.
+
+    Returns:
+        dict: Result of the Home Assistant service call.
     """
     targets = entity_ids if entity_ids else DEFAULT_LIGHT_ENTITY_IDS
     kelvin_to_set = None
@@ -155,48 +179,11 @@ def set_color_temperature(temperature_value, entity_ids: list = None):
     return turn_on(entity_ids=targets, kelvin=kelvin_to_set)
 
 
-# --- КОНЕЦ НОВОЙ ФУНКЦИИ ---
-
-
-# --- Тестовый блок для проверки light_actions ---
+# Example usage of light actions
 if __name__ == "__main__":
-    print("Запуск тестового скрипта Light Actions (v_with_color_temp)...")
-    if not HA_URL or not HA_TOKEN or not DEFAULT_LIGHT_ENTITY_IDS:
-        print("Конфигурация HA или default_lights не загружена. Тесты не могут быть выполнены.")
+    if not (HA_URL and HA_TOKEN and DEFAULT_LIGHT_ENTITY_IDS):
+        print("Home Assistant configuration not loaded. Example calls will be skipped.")
     else:
-        print(f"\nТестируем группу лампочек по умолчанию: {DEFAULT_LIGHT_ENTITY_IDS}")
-
-        input("Нажми Enter, чтобы ВКЛЮЧИТЬ свет (группа по умолчанию) на 100%...")
-        res = turn_on(brightness_percent=100)
-        print(f"Результат: {res}")
-
-        input("\nНажми Enter, чтобы установить ТЕПЛЫЙ свет (warm)...")
-        res = set_color_temperature("warm")
-        print(f"Результат: {res}")
-
-        input("\nНажми Enter, чтобы установить НЕЙТРАЛЬНЫЙ свет (natural)...")
-        res = set_color_temperature("natural")
-        print(f"Результат: {res}")
-
-        input("\nНажми Enter, чтобы установить ХОЛОДНЫЙ свет (cool)...")
-        res = set_color_temperature("cool")
-        print(f"Результат: {res}")
-
-        input("\nНажми Enter, чтобы установить температуру 3500K...")
-        res = set_color_temperature(3500)
-        print(f"Результат: {res}")
-
-        input("\nНажми Enter, чтобы ВЫКЛЮЧИТЬ свет...")
-        res = turn_off()
-        print(f"Результат: {res}")
-
-        # --- Финальный аккорд: включаем свет на 100% и с нейтральной температурой ---
-        print("\n--- Финальный шаг: Включение света на 100% с НЕЙТРАЛЬНОЙ температурой (4000K) ---")
-        final_res = turn_on(brightness_percent=100, kelvin=COLOR_TEMPERATURE_PRESETS_KELVIN.get("natural", 4000))
-        if final_res.get("success"):
-            print("Свет успешно включен на 100% с нейтральной температурой!")
-        else:
-            print(f"Не удалось вернуть свет. Ошибка: {final_res.get('error')}")
-        # --- Конец финального аккорда ---
-
-    print("\nЗавершение тестового скрипта Light Actions (v_with_color_temp).")
+        print(turn_on(brightness_percent=100))
+        print(set_color_temperature("warm"))
+        print(turn_off())
