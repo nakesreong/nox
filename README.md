@@ -89,8 +89,12 @@ This project is an exploration of what's possible with modern AI tools, local LL
 **Setup Steps:**
 1.  Clone the repository: `git clone https://github.com/nakesreong/iskra-vin.git` (Project name is Nox, repo name `iskra-vin` might be updated later)
 2.  Navigate to the project directory: `cd iskra-vin`
-3.  Copy `configs/settings.yaml.example` to `configs/settings.yaml` and fill in your API tokens (Telegram, Home Assistant), allowed user IDs, and other necessary configurations.
-    **Ensure `settings.yaml` is listed in `.gitignore` to protect your secrets!**
+3.  Copy the example configuration file and customize it:
+    ```bash
+    cp configs/settings.yaml.example configs/settings.yaml
+    ```
+    Fill in your API tokens (Telegram, Home Assistant), allowed user IDs, and other required settings.
+    After copying, open `.gitignore` and verify that `configs/settings.yaml` is included so the file won't be committed.
     * Example `settings.yaml` structure:
         ```yaml
         telegram_bot:
