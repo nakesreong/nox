@@ -135,5 +135,6 @@ ollama_data/
 homeassistant_config/
 
 configs/settings.yaml
-configs/
+configs/*
+!configs/settings.yaml.example
 temp_audio/
