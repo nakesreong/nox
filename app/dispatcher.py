@@ -54,5 +54,5 @@ def dispatch(intent: str, entities: dict, original_user_query: str = None) -> di
             "reason": "unhandled_intent",
             "intent": intent,
             "entities": entities,
-            "details_or_error": unknown_intent_message,
+            "details_or_error": unknown_intent_message
         }

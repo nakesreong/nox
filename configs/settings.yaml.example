@@ -1,0 +1,19 @@
+telegram_bot:
+  token: "YOUR_TELEGRAM_BOT_TOKEN"
+  allowed_user_ids:
+    - 123456789  # Example user ID
+    # - 987654321  # Another allowed ID
+ollama:
+  base_url: "http://127.0.0.1:11434"
+  default_model: "yandex/YandexGPT-5-Lite-8B-instruct-GGUF:latest"
+home_assistant:
+  base_url: "http://127.0.0.1:8123"
+  long_lived_access_token: "YOUR_HA_TOKEN"
+  default_lights:
+    - light.bulb_1
+    - light.bulb_2
+stt_engine:
+  whisper_model_size: "small"
+# logging:
+#   level: "INFO"
+#   file_path: "nox_app.log"
