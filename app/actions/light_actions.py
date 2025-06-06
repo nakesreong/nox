@@ -158,6 +158,7 @@ def set_color_temperature(temperature_value, entity_ids: list = None):
 # --- КОНЕЦ НОВОЙ ФУНКЦИИ ---
 
 
+# Manual test example: run this module directly to try the light actions.
 # --- Тестовый блок для проверки light_actions ---
 if __name__ == "__main__":
     print("Запуск тестового скрипта Light Actions (v_with_color_temp)...")

@@ -249,6 +249,7 @@ def run_bot() -> None:
     logger.info("Нокс (Telegram Бот) остановлен.")
 
 
+# Manual test example: run this file directly to start the Telegram bot.
 if __name__ == "__main__":
     run_bot()
 

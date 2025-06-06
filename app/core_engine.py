@@ -143,6 +143,7 @@ class CoreEngine:
         }
 
 
+# Manual test example: run this module directly to check core engine flow.
 # --- Тестовый блок для проверки core_engine ---
 if __name__ == "__main__":
     # Изменил имя для ясности
