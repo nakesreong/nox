@@ -5,31 +5,27 @@ services:
     image: ollama/ollama:latest
     container_name: iskra_ollama
     ports:
-      - "127.0.0.1:11434:11434"
+      - "192.168.86.24:11434:11434"
     volumes:
       - ./ollama_data:/root/.ollama
+    restart: unless-stopped
+    # Добавляем переменные окружения здесь
+    environment:
+      - OLLAMA_KEEP_ALIVE=-1
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1 # use 'all' if you want to allocate all GPUs
+              count: 1
               capabilities: [gpu]
-    restart: unless-stopped
 
   homeassistant:
-    image: homeassistant/home-assistant:stable # Use the stable HA version
+    image: homeassistant/home-assistant:stable
     container_name: iskra_homeassistant
     ports:
-      - "127.0.0.1:8123:8123" # Port for the HA web interface
+      - "192.168.86.24:8123:8123"
     volumes:
-      - ./homeassistant_config:/config # Mount configuration directory for HA
-      - /etc/localtime:/etc/localtime:ro # Sync time with host (important for automations)
-    privileged: true # May be required for some devices; try without first
-                     # or forward specific devices if known. Start like this for now.
+      - ./homeassistant_config:/config
+      - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
-
-volumes:
-  ollama_data:
-  homeassistant_config: # Docker will create this named volume if ./homeassistant_config is absent
-                        # For predictability, like with ollama_data, create ./homeassistant_config manually

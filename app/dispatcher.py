@@ -1,9 +1,9 @@
 # app/dispatcher.py
 
-from app.intent_handlers import device_control_handler, general_chat_handler
+from .intent_handlers import device_control_handler, general_chat_handler
 
 # Import the handler for mathematical operations
-from app.intent_handlers import math_operation_handler
+from .intent_handlers import math_operation_handler
 
 INTENT_HANDLERS_MAP = {
     "control_device": device_control_handler.handle_device_control,

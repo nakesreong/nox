@@ -191,13 +191,15 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
             acknowledgement = engine_response_dict.get("acknowledgement_response")
             final_status = engine_response_dict.get("final_status_response")
 
-            if acknowledgement:  # Send acknowledgement first if present
+            if acknowledgement:
                 await update.message.reply_text(acknowledgement)
 
-            if final_status:  # Then send the final result/error
+            if final_status:
                 await update.message.reply_text(final_status)
-            elif not acknowledgement:  # If there was neither acknowledgement nor final response
-                logger.info(f"Telegram_Bot: Для распознанной команды '{recognized_text}' от {user_name} нет никакого ответа.")
+
+            # Проверяем, что не было ВООБЩЕ никакого ответа для пользователя
+            if not acknowledgement and not final_status:
+                logger.info(f"Для распознанной команды '{recognized_text}' от {user_name} нет никакого ответа.")
 
         else:  # Если STT не смог распознать текст
             logger.warning(f"Telegram_Bot: Не удалось распознать текст из голосового сообщения от {user_name}.")
@@ -245,3 +247,5 @@ def run_bot() -> None:
     logger.info("Nox (Telegram Bot) stopped.")
 
 
+if __name__ == "__main__":
+       run_bot()

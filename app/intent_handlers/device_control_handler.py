@@ -1,6 +1,6 @@
 # app/intent_handlers/device_control_handler.py
 
-from app.actions import light_actions
+from ..actions import light_actions
 
 # Import other action modules as they are created
 # from app.actions import pc_actions
