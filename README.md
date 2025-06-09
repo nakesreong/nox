@@ -178,7 +178,7 @@ python3 scripts/stt_engine_demo.py
 
 ## 📄 Detailed Documentation
 
-For a more detailed technical overview of the project architecture, core modules, their interactions, and a deeper dive into the code, please refer to our full documentation document:
+Further information on the internal modules and setup can be found in the [docs](docs/) directory of this repository.  The original Google document is also still available:
 [Nox Project - Detailed Technical Documentation](https://docs.google.com/document/d/12p_tEo9tRZfuOEwtvmwG56KqBo3gAwxPL1WuEaS3RLI/edit?usp=sharing)
 
 ---
