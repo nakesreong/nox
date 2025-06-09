@@ -55,15 +55,15 @@ This project is an exploration of what's possible with modern AI tools, local LL
     │   ├── dispatcher.py                 # Routes intents to handlers
     │   ├── nlu_engine.py                 # Handles NLU and response generation via LLM
     │   ├── stt_engine.py                 # Handles Speech-to-Text using Whisper
+    │   ├── config_loader.py              # Loads YAML configuration
     │   ├── actions/
     │   │   ├── __init__.py
-    │   │   └── light_actions.py            # Controls lights via Home Assistant
-    │   │   └── scene_actions.py            # (Placeholder/Future for HA scenes)
+    │   │   └── light_actions.py          # Controls lights via Home Assistant
     │   └── intent_handlers/
     │       ├── __init__.py
     │       ├── device_control_handler.py   # Handles device control intents
     │       ├── general_chat_handler.py     # Handles general conversation intents
-    │       └── math_operation_handler.py   # Handles mathematical calculation intents (NEW)
+    │       └── math_operation_handler.py   # Handles mathematical calculation intents
     ├── configs/
     │   ├── __init__.py
     │   ├── llm_instructions.yaml         # Prompts and instructions for the LLM (create this file yourself; an example may appear as configs/llm_instructions.yaml.example)
@@ -72,10 +72,24 @@ This project is an exploration of what's possible with modern AI tools, local LL
     ├── interfaces/
     │   ├── __init__.py
     │   └── telegram_bot.py               # Telegram bot interaction logic
+    ├── prototypes/
+    │   └── listen_microphone.py          # Experimental wake-word microphone input
+    ├── scripts/
+    │   └── run_telegram_bot.py           # Entry point for the bot
     ├── requirements.txt                  # Python dependencies
-    └── temp_audio/                       # Temporary storage for voice messages (in .gitignore)
-    └── tests/                            # (Planned/Partially Implemented by Codex) Unit and integration tests
+    ├── temp_audio/                       # Temporary storage for voice messages (in .gitignore)
+    └── tests/                            # Unit and integration tests
         └── test_light_actions.py         # Example tests for light actions
+
+## 🧩 Module Overview
+
+* **Core modules (`app/`)** – contain the main processing logic: `core_engine.py`, `dispatcher.py`, `nlu_engine.py`, `stt_engine.py` and helpers like `config_loader.py`.
+* **Action modules (`app/actions/`)** – interact with external services (currently `light_actions.py` for Home Assistant lights).
+* **Intent handlers (`app/intent_handlers/`)** – higher level logic for device control, chat and math operations.
+* **Interfaces (`interfaces/`)** – user interfaces such as the Telegram bot.
+* **Prototype scripts (`prototypes/`)** – experimental code. `listen_microphone.py` listens for the "Hey Nox" wake word and processes microphone input.
+* **Utility scripts (`scripts/`)** – helper entry points and demos for manual testing.
+* **Temporary files (`temp_audio/`)** – voice messages saved here during processing (ignored by git).
 
 ## 🚀 Getting Started
 
