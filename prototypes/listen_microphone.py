@@ -110,18 +110,20 @@ try:
             print("...Запись окончена.")
 
             # --- Сохранение и обработка команды ---
-            wave_output_filename = "temp_command.wav"
-            wf = wave.open(wave_output_filename, 'wb')
+            temp_dir = Path(project_root) / "temp_audio"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            wave_output_path = temp_dir / "temp_command.wav"
+            wf = wave.open(str(wave_output_path), 'wb')
             wf.setnchannels(1)
             wf.setsampwidth(pa.get_sample_size(pyaudio.paInt16))
             wf.setframerate(porcupine.sample_rate)
             wf.writeframes(b''.join(frames))
             wf.close()
-            print(f"Команда сохранена в файл: {wave_output_filename}")
-            
+            print(f"Команда сохранена в файл: {wave_output_path}")
+
             # 1. Распознавание речи
             print("Передаю команду на распознавание (STT)...")
-            recognized_text = transcribe_audio_to_text(wave_output_filename)
+            recognized_text = transcribe_audio_to_text(str(wave_output_path))
             
             if recognized_text:
                 print(f"Распознанный текст: '{recognized_text}'")
