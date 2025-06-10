@@ -2,7 +2,6 @@
 import pyaudio
 import struct
 import pvporcupine
-import yaml
 import wave
 import os
 import sys
@@ -10,6 +9,7 @@ import numpy as np
 import uuid
 from pathlib import Path
 import requests
+from app.config_loader import load_settings
 
 # --- Добавляем корень проекта ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,8 +18,9 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # --- Конфигурация API ---
-NOX_CORE_API_URL = "http://127.0.0.1:8000/command/microphone" # <-- НОВЫЙ АДРЕС
-NOX_STT_API_URL = "http://127.0.0.1:8001/transcribe"
+# Значения будут загружены из settings.yaml в функции run_microphone_listener()
+NOX_CORE_API_URL = None
+NOX_STT_API_URL = None
 
 def play_beep(p, volume=0.2, frequency=880, duration=0.15):
     # ... (код этой функции не меняется)
@@ -32,12 +33,17 @@ def play_beep(p, volume=0.2, frequency=880, duration=0.15):
 
 def run_microphone_listener():
     # ... (код загрузки конфига Picovoice остается таким же) ...
+    global NOX_CORE_API_URL, NOX_STT_API_URL
     try:
-        config_path = Path(__file__).resolve().parent.parent / "configs" / "settings.yaml"
-        with config_path.open("r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
+        config = load_settings()
         ACCESS_KEY = config.get("picovoice", {}).get("access_key")
         WAKE_WORD_MODEL_PATH = str(Path(__file__).resolve().parent.parent / "configs" / "Hey-Nox_linux.ppn")
+        NOX_CORE_API_URL = config.get("api_endpoints", {}).get("nox_core_microphone")
+        NOX_STT_API_URL = config.get("api_endpoints", {}).get("nox_stt")
+        if not ACCESS_KEY:
+            raise ValueError("Picovoice access_key not found in settings.yaml")
+        if not NOX_CORE_API_URL or not NOX_STT_API_URL:
+            raise ValueError("API endpoints not configured in settings.yaml")
     except Exception as e:
         print(f"MicrophoneListener Error: Ошибка при загрузке конфигурации: {e}")
         return
