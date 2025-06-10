@@ -12,9 +12,9 @@ from telegram import Update
 import logging
 import os
 import sys
-import yaml
 import uuid
 from pathlib import Path
+from app.config_loader import load_settings
 
 # --- Добавляем корень проекта ---
 current_dir_bot = os.path.dirname(os.path.abspath(__file__))
@@ -26,9 +26,9 @@ if project_root_bot not in sys.path:
 # from app.stt_engine import transcribe_audio_to_text
 
 # --- Конфигурация ---
-# Адреса наших новых API
-NOX_CORE_API_URL = "http://127.0.0.1:8000/command/telegram" # <-- ИСПРАВЛЕННЫЙ АДРЕС
-NOX_STT_API_URL = "http://127.0.0.1:8001/transcribe"
+# Значения будут загружены из settings.yaml в функции main()
+NOX_CORE_API_URL = None
+NOX_STT_API_URL = None
 
 TEMP_AUDIO_DIR = os.path.join(project_root_bot, "temp_audio")
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -104,14 +104,17 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 def main() -> None:
+    global NOX_CORE_API_URL, NOX_STT_API_URL
     try:
-        config_path_bot = os.path.join(project_root_bot, "configs", "settings.yaml")
-        with open(config_path_bot, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
+        config = load_settings()
         TELEGRAM_TOKEN = config.get("telegram_bot", {}).get("token")
         ALLOWED_USER_IDS = config.get("telegram_bot", {}).get("allowed_user_ids", [])
+        NOX_CORE_API_URL = config.get("api_endpoints", {}).get("nox_core_telegram")
+        NOX_STT_API_URL = config.get("api_endpoints", {}).get("nox_stt")
         if not TELEGRAM_TOKEN or TELEGRAM_TOKEN == "YOUR_TELEGRAM_BOT_TOKEN":
             raise ValueError("Telegram bot token not found in settings.yaml")
+        if not NOX_CORE_API_URL or not NOX_STT_API_URL:
+            raise ValueError("API endpoints not configured in settings.yaml")
     except Exception as e:
         logging.critical(f"Telegram_Bot: Не удалось загрузить конфигурацию: {e}")
         return

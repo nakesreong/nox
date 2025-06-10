@@ -3,6 +3,10 @@ telegram_bot:
   allowed_user_ids:
     - 123456789  # Example user ID
     # - 987654321  # Another allowed ID
+api_endpoints:
+  nox_core_telegram: "http://127.0.0.1:8000/command/telegram"
+  nox_core_microphone: "http://127.0.0.1:8000/command/microphone"
+  nox_stt: "http://127.0.0.1:8001/transcribe"
 ollama:
   base_url: "http://127.0.0.1:11434"
   default_model: "gemma3:latest"
