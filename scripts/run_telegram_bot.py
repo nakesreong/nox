@@ -1,4 +1,4 @@
-from interfaces.telegram_bot import run_bot
+from interfaces.telegram_bot import main
 
 if __name__ == "__main__":
-    run_bot()
+    main()
