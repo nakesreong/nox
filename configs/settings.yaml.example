@@ -5,7 +5,7 @@ telegram_bot:
     # - 987654321  # Another allowed ID
 ollama:
   base_url: "http://127.0.0.1:11434"
-  default_model: "yandex/YandexGPT-5-Lite-8B-instruct-GGUF:latest"
+  default_model: "cyberlis/saiga-mistral:7b-lora-q4_K"
 home_assistant:
   base_url: "http://127.0.0.1:8123"
   long_lived_access_token: "YOUR_HA_TOKEN"
