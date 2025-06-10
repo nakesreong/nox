@@ -15,6 +15,7 @@ This project is an exploration of what's possible with modern AI tools, local LL
 * **Calculator Functionality:** Can perform basic arithmetic operations based on user requests (e.g., "what is 2+2?", "calculate 345*26-134").
 * **Telegram Bot Interface:** Primary interface for sending both text and voice commands and receiving responses.
 * **Speech-to-Text (STT):** Integrated `openai-whisper` for local voice command transcription, enhancing privacy and enabling voice control.
+* **FastAPI Services:** Two lightweight APIs expose the core logic and STT engine so that other components can talk to them over HTTP.
 * **Natural Language Responses:** Nox generates human-like, contextual responses via the LLM, based on detailed instructions.
 * **Modular Architecture:** Designed with a core engine, NLU processing, an intent dispatcher, and dedicated intent handlers and action modules for easier expansion.
     * `device_control_handler` for managing devices.
@@ -38,6 +39,7 @@ This project is an exploration of what's possible with modern AI tools, local LL
     * `openai-whisper` (for STT)
 * **Smart Home:** Home Assistant
 * **Interface:** `python-telegram-bot`
+* **APIs:** `FastAPI` powers a core service and a separate STT service
 * **Configuration:** PyYAML
 * **API Interaction:** `requests`
 * **Data Validation:** `Pydantic`
@@ -49,12 +51,14 @@ This project is an exploration of what's possible with modern AI tools, local LL
     nox/
     ├── .gitignore
     ├── README.md
+    ├── api_server.py                 # FastAPI service exposing the core engine
+    ├── stt_server.py                 # FastAPI service for speech-to-text
     ├── app/
     │   ├── __init__.py
     │   ├── core_engine.py                # Orchestrates command processing
     │   ├── dispatcher.py                 # Routes intents to handlers
     │   ├── nlu_engine.py                 # Handles NLU and response generation via LLM
-    │   ├── stt_engine.py                 # Handles Speech-to-Text using Whisper
+    │   ├── stt_engine.py                 # Core STT logic used by stt_server.py
     │   ├── config_loader.py              # Loads YAML configuration
     │   ├── actions/
     │   │   ├── __init__.py
@@ -83,10 +87,10 @@ This project is an exploration of what's possible with modern AI tools, local LL
 
 ## 🧩 Module Overview
 
-* **Core modules (`app/`)** – contain the main processing logic: `core_engine.py`, `dispatcher.py`, `nlu_engine.py`, `stt_engine.py` and helpers like `config_loader.py`.
+* **Core modules (`app/`)** – contain the main processing logic: `core_engine.py`, `dispatcher.py`, `nlu_engine.py`, `stt_engine.py` (used by `stt_server.py`) and helpers like `config_loader.py`.
 * **Action modules (`app/actions/`)** – interact with external services (currently `light_actions.py` for Home Assistant lights).
 * **Intent handlers (`app/intent_handlers/`)** – higher level logic for device control, chat and math operations.
-* **Interfaces (`interfaces/`)** – user interfaces such as the Telegram bot.
+* **Interfaces (`interfaces/`)** – user interfaces such as the Telegram bot. They communicate with the FastAPI services over HTTP.
 * **Prototype scripts (`prototypes/`)** – experimental code. `listen_microphone.py` listens for the "Hey Nox" wake word and processes microphone input.
 * **Utility scripts (`scripts/`)** – helper entry points and demos for manual testing.
 * **Temporary files (`temp_audio/`)** – voice messages saved here during processing (ignored by git).
@@ -134,7 +138,12 @@ This project is an exploration of what's possible with modern AI tools, local LL
 4.  Ensure your `docker-compose.yml` has ports for Ollama and Home Assistant bound to `127.0.0.1` if you only want local access for security.
 5.  Run `docker compose up -d` to start Ollama and Home Assistant services.
 6.  Install Python dependencies: `pip3 install -r requirements.txt` (ensure `python-telegram-bot`, `PyYAML`, `requests`, `Pydantic`, `openai-whisper` are listed).
-7.  Run the main application: `python3 scripts/run_telegram_bot.py`.
+7.  Start the services and bot:
+    ```bash
+    python3 api_server.py       # core logic service
+    python3 stt_server.py       # speech-to-text service
+    python3 scripts/run_telegram_bot.py  # client bot
+    ```
 
 ## 💡 Usage
 
