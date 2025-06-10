@@ -122,18 +122,20 @@ This project is an exploration of what's possible with modern AI tools, local LL
             # - 987654321 # Another User ID
         ollama:
           base_url: "[http://127.0.0.1:11434](http://127.0.0.1:11434)" # Use 127.0.0.1 for local access
-          default_model: "yandex/YandexGPT-5-Lite-8B-instruct-GGUF:latest" # Or your preferred model
+          default_model: "gemma3:latest" # Or your preferred model
         home_assistant:
           base_url: "[http://127.0.0.1:8123](http://127.0.0.1:8123)" # Use 127.0.0.1 for local access
           long_lived_access_token: "YOUR_HA_TOKEN"
           default_lights:
-            - light.bulb_1 # Replace with your light entity IDs
-            - light.bulb_2
+            - light.roomlight_1 # Replace with your light entity IDs
+            - light.roomlight_2
         stt_engine:
           whisper_model_size: "small" # Options: tiny, base, small, medium, large
-        # logging:
-        #   level: "INFO"
-        #   file_path: "nox_app.log"
+        logging:
+          level: "INFO"
+          file_path: "nox_app.log"
+        picovoice:
+          access_key: "YOUR_PICOVOICE_ACCESS_KEY"
         ```
 4.  Ensure your `docker-compose.yml` has ports for Ollama and Home Assistant bound to `127.0.0.1` if you only want local access for security.
 5.  Run `docker compose up -d` to start Ollama and Home Assistant services.
