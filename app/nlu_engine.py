@@ -36,6 +36,7 @@ class EntitiesModel(BaseModel):
     # or for simple qualitative temperature if action is set_color_temperature (legacy, try to avoid)
     value: Optional[Any] = None
     expression: Optional[str] = None
+    sensor_type: Optional[str] = None
 
 
 class NluResponseModel(BaseModel):

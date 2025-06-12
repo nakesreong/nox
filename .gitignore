@@ -138,3 +138,5 @@ configs/settings.yaml
 configs/*
 !configs/settings.yaml.example
 temp_audio/
+temp_audio_mic/
+temp_audio_stt/

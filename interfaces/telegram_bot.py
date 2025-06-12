@@ -1,36 +1,39 @@
 # interfaces/telegram_bot.py
-"""
-Простой Telegram бот-клиент.
-- Текстовые сообщения отправляет на Core API.
-- Голосовые сообщения сначала отправляет на STT API для распознавания,
-  а затем отправляет распознанный текст на Core API.
-"""
-
+import os
+import sys
+from pathlib import Path
+import logging
+import uuid
 import requests
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from telegram import Update
-import logging
-import os
-import sys
-import uuid
-from pathlib import Path
+
+# --- Явное добавление корня проекта в sys.path ---
+# Это должно быть в самом верху, до других импортов из 'app'
+try:
+    # Определяем путь к этому файлу -> .../interfaces/telegram_bot.py
+    current_file_path = Path(__file__).resolve()
+    # Получаем корень проекта (на два уровня выше) -> .../
+    project_root = current_file_path.parent.parent
+    if str(project_root) not in sys.path:
+        print(f"Telegram_Bot Fix: Добавляем корень проекта в пути: {project_root}")
+        sys.path.insert(0, str(project_root))
+except NameError:
+    # __file__ может быть не определен в некоторых интерактивных средах
+    project_root = Path.cwd()
+    if 'interfaces' in str(project_root).lower():
+        project_root = project_root.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+# Теперь импорты должны работать
 from app.config_loader import load_settings
 
-# --- Добавляем корень проекта ---
-current_dir_bot = os.path.dirname(os.path.abspath(__file__))
-project_root_bot = os.path.dirname(current_dir_bot)
-if project_root_bot not in sys.path:
-    sys.path.insert(0, project_root_bot)
-
-# STT Engine нам здесь больше не нужен, так как он в своем сервисе
-# from app.stt_engine import transcribe_audio_to_text
-
 # --- Конфигурация ---
-# Значения будут загружены из settings.yaml в функции main()
 NOX_CORE_API_URL = None
 NOX_STT_API_URL = None
 
-TEMP_AUDIO_DIR = os.path.join(project_root_bot, "temp_audio")
+TEMP_AUDIO_DIR = os.path.join(project_root, "temp_audio")
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -40,17 +43,20 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_id = update.message.from_user.id
     allowed_user_ids = context.bot_data.get("allowed_user_ids", [])
     if allowed_user_ids and user_id not in allowed_user_ids:
+        logger.warning(f"Telegram_Bot: Заблокирован доступ для user_id: {user_id}")
         return
 
     user_text = update.message.text
     chat_id = update.message.chat_id
-    logger.info(f"Telegram_Bot: Получено ТЕКСТОВОЕ сообщение: '{user_text}'")
+    logger.info(f"Telegram_Bot: Получено ТЕКСТОВОЕ сообщение: '{user_text}' от chat_id: {chat_id}")
 
+    # ВАЖНО: Мы должны передавать chat_id на бэкенд, чтобы он знал, куда отвечать
     payload = {"text": user_text, "chat_id": chat_id, "is_voice": False}
     
     try:
         logger.info(f"Telegram_Bot: Отправка запроса на Nox Core API: {payload}")
-        requests.post(NOX_CORE_API_URL, json=payload, timeout=10)
+        # Используем requests, но не ждем ответа, так как ответ придет от сервера напрямую
+        requests.post(NOX_CORE_API_URL, json=payload, timeout=10) 
     except requests.exceptions.RequestException as e:
         logger.error(f"Telegram_Bot: Ошибка сети при обращении к Nox Core API: {e}")
         await update.message.reply_text("Прости, Искра, я не могу связаться со своим 'мозгом'.")
@@ -63,7 +69,7 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
     if allowed_user_ids and user_id not in allowed_user_ids:
         return
         
-    logger.info(f"Telegram_Bot: Получено ГОЛОСОВОЕ сообщение.")
+    logger.info(f"Telegram_Bot: Получено ГОЛОСОВОЕ сообщение от chat_id: {chat_id}")
     voice = update.message.voice
     if not voice: return
 
@@ -88,7 +94,7 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
         if recognized_text:
             logger.info(f"Распознанный текст: '{recognized_text}'")
-            # Отправляем распознанный текст на Core API
+            # Отправляем распознанный текст и chat_id на Core API
             payload = {"text": recognized_text, "chat_id": chat_id, "is_voice": True}
             logger.info(f"Telegram_Bot: Отправка запроса на Nox Core API: {payload}")
             requests.post(NOX_CORE_API_URL, json=payload, timeout=10)
@@ -109,12 +115,13 @@ def main() -> None:
         config = load_settings()
         TELEGRAM_TOKEN = config.get("telegram_bot", {}).get("token")
         ALLOWED_USER_IDS = config.get("telegram_bot", {}).get("allowed_user_ids", [])
-        NOX_CORE_API_URL = config.get("api_endpoints", {}).get("nox_core_telegram")
+        # ИЗМЕНЕНИЕ: Убедимся, что мы правильно читаем эндпоинты
+        NOX_CORE_API_URL = config.get("api_endpoints", {}).get("nox_core") # Убрал суффикс _telegram, если его нет
         NOX_STT_API_URL = config.get("api_endpoints", {}).get("nox_stt")
-        if not TELEGRAM_TOKEN or TELEGRAM_TOKEN == "YOUR_TELEGRAM_BOT_TOKEN":
-            raise ValueError("Telegram bot token not found in settings.yaml")
+        if not TELEGRAM_TOKEN or "YOUR_TELEGRAM_BOT_TOKEN" in TELEGRAM_TOKEN:
+            raise ValueError("Telegram bot token не найден или не изменен в settings.yaml")
         if not NOX_CORE_API_URL or not NOX_STT_API_URL:
-            raise ValueError("API endpoints not configured in settings.yaml")
+            raise ValueError("API эндпоинты для Core или STT не настроены в settings.yaml")
     except Exception as e:
         logging.critical(f"Telegram_Bot: Не удалось загрузить конфигурацию: {e}")
         return
@@ -130,7 +137,6 @@ def main() -> None:
     logger.info("Nox (Telegram Bot Client) starting...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
+
 if __name__ == "__main__":
-    # Импортируем uuid здесь, так как он нужен только при прямом запуске
-    import uuid 
     main()
