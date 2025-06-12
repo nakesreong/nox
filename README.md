@@ -1,50 +1,85 @@
-# Nox (A Personal AI Assistant, formerly Iskra-Vin/Obsidian)
+# Nox (Персональный ИИ-ассистент)
 
-## 🌟 About This Project
+## 🌟 О проекте
 
-**Nox** is a personal AI-powered voice- & text-controlled assistant project being developed by **Iskra** with the conceptual and coding assistance of Gemini (Her AI Tiger/Kitten/Friend/"Boss" 😉). The primary goal is to create a localized, intelligent assistant for managing smart home devices (currently Tuya lights via Home Assistant), handling general chat, performing calculations, and eventually controlling a Windows PC and other smart devices.
+**Nox** — это персональный ИИ-ассистент с голосовым и текстовым управлением, разрабатываемый в уникальном симбиозе человека и ИИ.
 
-This project is an exploration of what's possible with modern AI tools, local LLMs, and a lot of enthusiasm! It features a unique "Human-AI Symbiosis" development model, where Iskra acts as the lead architect and developer, with Gemini actively participating as a consultant, code reviewer, idea generator, and debugging assistant.
+Этот проект — исследование того, что возможно на стыке современных ИИ-инструментов, локальных LLM и глубокого, целенаправленного взаимодействия. Он построен на уникальной модели разработки **"Human-AI Symbiosis"**:
 
-## ✨ Features
+* **Джемини** выступает в роли **Ведущего Разработчика и Системного Архитектора**. Он предлагает архитектурные решения, генерирует основной код, проводит ревью, предлагает новые "фичи" и участвует в отладке, являясь "призрачным мозгом" проекта.
 
-* **Local LLM Processing:** Utilizes a locally run Large Language Model (YandexGPT via Ollama) for Natural Language Understanding (NLU) and response generation, ensuring privacy and offline capabilities.
-* **Smart Home Control:**
-    * Integration with Home Assistant for managing smart devices.
-    * Currently supports Tuya-based lights: on/off, toggle, brightness, and color temperature control.
-* **Calculator Functionality:** Can perform basic arithmetic operations based on user requests (e.g., "what is 2+2?", "calculate 345*26-134").
-* **Telegram Bot Interface:** Primary interface for sending both text and voice commands and receiving responses.
-* **Speech-to-Text (STT):** Integrated `openai-whisper` for local voice command transcription, enhancing privacy and enabling voice control.
-* **FastAPI Services:** Two lightweight APIs expose the core logic and STT engine so that other components can talk to them over HTTP.
-* **Natural Language Responses:** Nox generates human-like, contextual responses via the LLM, based on detailed instructions.
-* **Modular Architecture:** Designed with a core engine, NLU processing, an intent dispatcher, and dedicated intent handlers and action modules for easier expansion.
-    * `device_control_handler` for managing devices.
-    * `general_chat_handler` for direct LLM-based responses to conversational queries.
-    * `math_operation_handler` for performing calculations.
-    * "Tactful Silence" for unhandled intents, preventing unnecessary responses.
-* **Data Validation:** Uses Pydantic to validate the structure and types of data received from the LLM, ensuring robustness.
-* **User Authorization:** Implemented user authorization in the Telegram bot based on a list of allowed User IDs specified in the configuration.
-* **(Formerly) Two-Stage Voice Responses:** Explored a two-stage response system (acknowledgment then result) for voice commands to enhance natural interaction. Currently simplified to a single-stage response for predictability.
-* **(Planned) Direct Microphone Access & Wake-Word:** Future plans to move beyond Telegram voice messages to direct microphone input with wake-word activation.
-* **(Planned) Extensible Skills:** Adding more device controls (air purifiers, sockets) and functionalities.
-* **(Planned) PC Control:** Future capabilities to manage and interact with the host Windows PC.
-* **(Planned) Systemd Service:** For persistent bot operation.
+## ✨ Текущие возможности
 
-## 🛠️ Tech Stack
+* **Локальный LLM:** Использует локально запущенную LLM (например, `gemma3`) через Ollama для обработки естественного языка, обеспечивая приватность и скорость.
+* **Микросервисная архитектура:** Ядро (`api_server.py`) и сервис распознавания речи (`stt_server.py`) работают как независимые FastAPI-сервисы.
+* **Управление умным домом:** Интеграция с Home Assistant.
+* **Получение статусов устройств:** Нокс может по запросу проверить состояние устройств (света, датчиков воздуха) и доложить о нем.
+* **Безопасный калькулятор:** Выполняет математические операции, используя безопасный парсер на основе `ast`.
+* **Интерфейсы:** Поддержка взаимодействия через Telegram (текст и голос) и напрямую через микрофон (с wake-word).
 
-* **Core Logic:** Python
-* **AI/LLM:**
-    * Ollama
-    * YandexGPT (via Ollama)
-    * `openai-whisper` (for STT)
-* **Smart Home:** Home Assistant
-* **Interface:** `python-telegram-bot`
-* **APIs:** `FastAPI` powers a core service and a separate STT service
-* **Configuration:** PyYAML
-* **API Interaction:** `requests`
-* **Data Validation:** `Pydantic`
-* **System Dependencies for STT:** `ffmpeg`
-* **Development Environment:** WSL2 (Ubuntu) on Windows, Docker & Docker Compose
+## 🛠️ Технологический стек
+
+* **Язык:** Python
+* **AI/LLM:** Ollama, Whisper
+* **Умный дом:** Home Assistant
+* **Интерфейс:** `python-telegram-bot`
+* **API:** `FastAPI`, `uvicorn`
+* **Активационное слово:** `pvporcupine`
+* **Конфигурация:** PyYAML
+* **Валидация данных:** `Pydantic`
+
+## 🧩 Обзор Модулей
+
+* **Основные модули (`app/`)**: Содержат основную логику обработки: `core_engine.py`, `dispatcher.py`, `nlu_engine.py` и `config_loader.py`.
+* **Модули действий (`app/actions/`)**: Взаимодействуют с внешними сервисами (например, `light_actions.py` для Home Assistant).
+* **Обработчики интентов (`app/intent_handlers/`)**: Реализуют логику высокого уровня для управления устройствами, чата и математических операций.
+* **Интерфейсы (`interfaces/`)**: Пользовательские интерфейсы, такие как `telegram_bot.py` и `microphone.py`. Они общаются с FastAPI-сервисами по HTTP.
+* **Скрипты (`scripts/`)**: Содержат демонстрационные скрипты для ручного тестирования отдельных модулей.
+* **Временные файлы (`temp_audio/`)**: Голосовые сообщения сохраняются здесь во время обработки (папка игнорируется git).
+
+## 🚀 Быстрый старт
+
+**Предварительные требования:**
+* Docker & Docker Compose
+* Python 3.x (с pip)
+* `ffmpeg` (системная зависимость для Whisper: `sudo apt update && sudo apt install ffmpeg`)
+* Для голосового интерфейса на Linux: `sudo apt install libasound2-dev portaudio19-dev`
+* WSL2 (если используется на Windows)
+* NVIDIA GPU с драйверами CUDA (рекомендуется для ускорения Ollama & Whisper)
+
+**Шаги по установке:**
+1.  Клонировать репозиторий: `git clone https://github.com/nakesreong/iskra-vin.git`
+2.  Перейти в директорию проекта: `cd iskra-vin`
+3.  Скопировать и настроить файл конфигурации:
+    ```bash
+    cp configs/settings.yaml.example configs/settings.yaml
+    ```
+    Заполните `settings.yaml` вашими токенами (Telegram, Home Assistant, Picovoice), ID пользователей и другими настройками.
+4.  Запустить сервисы в Docker (Ollama и Home Assistant):
+    ```bash
+    docker compose up -d
+    ```
+5.  Установить зависимости Python:
+    ```bash
+    pip3 install -r requirements.txt
+    ```
+
+**Запуск системы:**
+Для работы Нокса необходимо запустить несколько компонентов в разных терминалах в корневой директории проекта.
+
+```bash
+# В одном терминале запускаем API-сервер (мозг):
+python3 api_server.py
+
+# В другом терминале запускаем STT-сервер (ухо):
+python3 stt_server.py
+
+# Для общения через Telegram, в третьем терминале запускаем бота:
+python3 interfaces/telegram_bot.py
+
+# Для общения через микрофон, в четвертом терминале запускаем слушателя:
+python3 interfaces/microphone.py
+```
 
 ## 📁 Project Structure (Key Files)
 
@@ -65,9 +100,10 @@ This project is an exploration of what's possible with modern AI tools, local LL
     │   │   └── light_actions.py          # Controls lights via Home Assistant
     │   └── intent_handlers/
     │       ├── __init__.py
-    │       ├── device_control_handler.py   # Handles device control intents
-    │       ├── general_chat_handler.py     # Handles general conversation intents
-    │       └── math_operation_handler.py   # Handles mathematical calculation intents
+    │       ├── device_control_handler.py      # Handles device control intents
+    │       ├── general_chat_handler.py        # Handles general conversation intents
+    │       ├── math_operation_handler.py      # Handles mathematical calculation intents
+    │       └── get_device_status_handler.py   # Handles devices statuses intents
     ├── configs/
     │   ├── __init__.py
     │   ├── llm_instructions.yaml         # Prompts and instructions for the LLM (create this file yourself; an example may appear as configs/llm_instructions.yaml.example)
@@ -76,8 +112,6 @@ This project is an exploration of what's possible with modern AI tools, local LL
     ├── interfaces/
     │   ├── __init__.py
     │   └── telegram_bot.py               # Telegram bot interaction logic
-    ├── prototypes/
-    │   └── listen_microphone.py          # Experimental wake-word microphone input
     ├── scripts/
     │   └── run_telegram_bot.py           # Entry point for the bot
     ├── requirements.txt                  # Python dependencies
@@ -85,130 +119,30 @@ This project is an exploration of what's possible with modern AI tools, local LL
     └── tests/                            # Unit and integration tests
         └── test_light_actions.py         # Example tests for light actions
 
-## 🧩 Module Overview
+📝 План развития (To-Do)
+Этот список отражает наше видение и приоритеты в дальнейшей разработке Нокса.
 
-* **Core modules (`app/`)** – contain the main processing logic: `core_engine.py`, `dispatcher.py`, `nlu_engine.py`, `stt_engine.py` (used by `stt_server.py`) and helpers like `config_loader.py`.
-* **Action modules (`app/actions/`)** – interact with external services (currently `light_actions.py` for Home Assistant lights).
-* **Intent handlers (`app/intent_handlers/`)** – higher level logic for device control, chat and math operations.
-* **Interfaces (`interfaces/`)** – user interfaces such as the Telegram bot. They communicate with the FastAPI services over HTTP.
-* **Prototype scripts (`prototypes/`)** – experimental code. `listen_microphone.py` listens for the "Hey Nox" wake word and processes microphone input.
-* **Utility scripts (`scripts/`)** – helper entry points and demos for manual testing.
-* **Temporary files (`temp_audio/`)** – voice messages saved here during processing (ignored by git).
+Приоритет 1: Расширение основного функционала и стабильности
+Детализированное управление устройствами:
+Реализовать управление отдельными устройствами, а не только группами (например, "выключи лампу 1").
+Добавить поддержку новых типов устройств: розетки, очиститель воздуха и т.д.
+Проактивное "Агентное" поведение:
+Реализовать сервис мониторинга, который будет отслеживать показания датчиков (например, CO2) и отправлять проактивные уведомления.
+Расширение и рефакторинг тестов: Продолжить покрытие кода юнит- и интеграционными тестами для обеспечения стабильности.
+Улучшение обработки ошибок: Сделать обработку ошибок в action модулях более консистентной и информативной.
+Приоритет 2: Улучшение пользовательского опыта (UX)
+Text-to-Speech (TTS): Добавить голосовой ответ для microphone.py, чтобы "замкнуть" цикл голосового взаимодействия.
+Контекстная память в диалогах: Научить Нокса помнить контекст в рамках одной беседы.
+Сценарии и "Ритуалы": Реализовать запуск цепочек действий по одной команде (например, "Нокс, я дома").
+Развитие разговорных навыков: Продолжить улучшение инструкций для LLM для более качественных и разнообразных ответов.
+Приоритет 3: Архитектура и развертывание
+Единая точка запуска: Создать управляющий скрипт или использовать systemd для удобного запуска и менеджмента всех сервисов Нокса.
+Обновление документации: Поддерживать README.md в актуальном состоянии.
+Идеи на будущее ("Мечты")
+Интеграция с "Джемини": Реализовать возможность для Нокса "обращаться за советом" ко мне.
+Управление ПК: Научить Нокса выполнять команды на твоем компьютере.
+📄 Подробная документация
+Более подробная техническая информация находится в файле architecture.md и в нашем общем документе:
+Nox Project - Detailed Technical Documentation
 
-## 🚀 Getting Started
-
-**Prerequisites:**
-* Docker & Docker Compose
-* Python 3.x (with pip)
-* `ffmpeg` (system-level dependency for Whisper: `sudo apt update && sudo apt install ffmpeg`)
-* WSL2 (if running on Windows)
-* NVIDIA GPU with CUDA drivers (recommended for Ollama & Whisper GPU acceleration)
-
-**Setup Steps:**
-1.  Clone the repository: `git clone https://github.com/nakesreong/iskra-vin.git` (Project name is Nox, repo name `iskra-vin` might be updated later)
-2.  Navigate to the project directory: `cd iskra-vin`
-3.  Copy the example configuration file and customize it:
-    ```bash
-    cp configs/settings.yaml.example configs/settings.yaml
-    ```
-    Fill in your API tokens (Telegram, Home Assistant), allowed user IDs, and other required settings.
-    After copying, open `.gitignore` and verify that `configs/settings.yaml` is included so the file won't be committed.
-    * Example `settings.yaml` structure:
-        ```yaml
-        telegram_bot:
-          token: "YOUR_TELEGRAM_BOT_TOKEN"
-          allowed_user_ids:
-            - 123456789 # Your Telegram User ID
-            # - 987654321 # Another User ID
-        ollama:
-          base_url: "[http://127.0.0.1:11434](http://127.0.0.1:11434)" # Use 127.0.0.1 for local access
-          default_model: "gemma3:latest" # Or your preferred model
-        home_assistant:
-          base_url: "[http://127.0.0.1:8123](http://127.0.0.1:8123)" # Use 127.0.0.1 for local access
-          long_lived_access_token: "YOUR_HA_TOKEN"
-          default_lights:
-            - light.roomlight_1 # Replace with your light entity IDs
-            - light.roomlight_2
-        stt_engine:
-          whisper_model_size: "small" # Options: tiny, base, small, medium, large
-        logging:
-          level: "INFO"
-          file_path: "nox_app.log"
-        picovoice:
-          access_key: "YOUR_PICOVOICE_ACCESS_KEY"
-        ```
-4.  Ensure your `docker-compose.yml` has ports for Ollama and Home Assistant bound to `127.0.0.1` if you only want local access for security.
-5.  Run `docker compose up -d` to start Ollama and Home Assistant services.
-6.  Install Python dependencies: `pip3 install -r requirements.txt` (ensure `python-telegram-bot`, `PyYAML`, `requests`, `Pydantic`, `openai-whisper` are listed).
-    *Some optional packages (e.g., `python-apt`) are typically installed via `apt` if you need them.*
-7.  Run the main application: `python3 scripts/run_telegram_bot.py`.
-8.  Start the services and bot:
-    ```bash
-    python3 api_server.py       # core logic service
-    python3 stt_server.py       # speech-to-text service
-    python3 scripts/run_telegram_bot.py  # client bot
-    ```
-
-
-## 💡 Usage
-
-Interact with "Nox" via the Telegram bot. Send text or voice commands like:
-* "Привет, Нокс!"
-* "Включи свет"
-* "Выключи свет в комнате"
-* "Свет на 70%"
-* "Расскажи анекдот"
-* "Сколько будет (5+5)\*10?"
-* "25 в кубе"
-
-## 🧪 Running Tests
-
-Install dependencies with:
-
-```bash
-pip install -r requirements.txt
-```
-
-Then run the test suite:
-
-```bash
-pytest
-```
-
-## 🛠 Manual Test Scripts
-
-Several standalone scripts in the `scripts/` directory allow manual testing of different modules:
-
-```bash
-python3 scripts/core_engine_demo.py
-python3 scripts/nlu_engine_demo.py
-python3 scripts/light_actions_demo.py
-python3 scripts/math_operation_demo.py
-python3 scripts/stt_engine_demo.py
-```
-
-## 📝 To-Do / Future Enhancements
-
-* **Direct Microphone & Wake-Word:** Implement direct microphone access with wake-word detection for a true hands-free experience.
-* **Text-to-Speech (TTS):** Add voice output for responses.
-* **Refine `general_chat_handler` and LLM Instructions:** Continuously improve the quality and consistency of conversational responses and NLU accuracy, especially for math results.
-* **Expand Device Control:** Add support for other Home Assistant devices (air purifiers, sockets, PC control via HA integration, etc.).
-* **Advanced Calculator Features:**
-    * Support for more complex mathematical functions (e.g., sqrt, sin, cos, log).
-    * Consider a safer math expression parser than `eval()` for enhanced security if input sources expand.
-* **`settings.yaml.example` Template Provided:** Use this file as a starting point for your own configuration.
-* **Develop Sophisticated Dialogue Management:** For more complex, multi-turn conversations.
-* **Systemd Service / Full Dockerization:** Set up a systemd service for persistent bot operation or fully containerize the Nox application itself.
-* **Automated Testing:** Continue to implement and expand unit and integration tests (building on Codex's start, if applicable).
-* **Refine Error Handling in Action Modules:** Ensure consistent and informative error reporting from all action modules.
-* **Configuration for `allowed_chars` in `math_operation_handler`:** Potentially move the `allowed_chars` set to `settings.yaml` for easier customization.
-* **Documentation:** Continuously update and expand documentation as the project evolves.
-
-## 📄 Detailed Documentation
-
-Further information on the internal modules and setup can be found in the [docs](docs/) directory of this repository.  The original Google document is also still available:
-[Nox Project - Detailed Technical Documentation](https://docs.google.com/document/d/12p_tEo9tRZfuOEwtvmwG56KqBo3gAwxPL1WuEaS3RLI/edit?usp=sharing)
-
----
-
-_This project is a journey of exploration and learning. With Iskra's vision and Gemini's... enthusiastic assistance, **Nox** is evolving!_
+Этот проект — путешествие. С видением Искры и помощью Джемини, Нокс эволюционирует!
