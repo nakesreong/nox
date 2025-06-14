@@ -19,15 +19,17 @@ DEFAULT_LIGHT_ENTITY_IDS = []
 try:
     config_la = load_settings()
 
-    HA_URL = config_la.get("home_assistant", {}).get("base_url")
-    HA_TOKEN = config_la.get("home_assistant", {}).get("long_lived_access_token")
+    ha_config = config_la.get("home_assistant", {})
+    HA_URL = ha_config.get("base_url")
+    HA_TOKEN = ha_config.get("long_lived_access_token")
 
-    DEFAULT_LIGHT_ENTITY_IDS = config_la.get("home_assistant", {}).get("default_lights", ["light.room_1", "light.room_2", "light.room_3"])
+    # ИЗМЕНЕНО: Обновлен путь для загрузки списка default_lights из новой структуры с device_groups
+    DEFAULT_LIGHT_ENTITY_IDS = ha_config.get("device_groups", {}).get("default_lights", [])
 
     if not HA_URL or not HA_TOKEN:
         raise ValueError("Home Assistant URL or token not found in configs/settings.yaml")
     if not DEFAULT_LIGHT_ENTITY_IDS:
-        print("Light_Actions warning: default_lights list not found or empty.")
+        print("Light_Actions warning: default_lights list not found or empty in settings.")
     print("Light_Actions: Home Assistant configuration and default lights loaded.")
 
 except Exception as e:
@@ -50,7 +52,10 @@ def _call_ha_light_service(service_name: str, entity_ids: list, service_data: di
         "Content-Type": "application/json",
     }
 
-    payload = {"entity_id": entity_ids if len(entity_ids) > 1 else entity_ids[0]}
+    # ИЗМЕНЕНО: Home Assistant ожидает entity_id в виде строки, даже для нескольких устройств (через запятую).
+    # Превращаем наш список в такую строку. Это исправляет "тихий" баг.
+    payload = {"entity_id": ",".join(entity_ids)}
+    
     if service_data:
         payload.update(service_data)
 
@@ -172,4 +177,3 @@ def set_color_temperature(temperature_value, entity_ids: list = None):
 
     # Calling light.turn_on with color_temp_kelvin will also turn on the light if it was off
     return turn_on(entity_ids=targets, kelvin=kelvin_to_set)
-
