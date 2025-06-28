@@ -27,7 +27,7 @@
 ## Project Layout
 
 ```
-iskra-vin/
+nox/
 ├── api_server.py          # FastAPI service exposing the core engine
 ├── stt_server.py          # Speech-to-text service
 ├── app/
