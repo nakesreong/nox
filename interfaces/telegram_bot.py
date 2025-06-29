@@ -4,19 +4,16 @@ import sys
 from pathlib import Path
 import logging
 import uuid
-import requests # Оставляем для STT, если он на другом сервере и не требует async
-import httpx # ИЗМЕНЕНИЕ: Импортируем новую библиотеку
+import requests
+import httpx
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from telegram import Update
-from collections import deque
 
-# --- Явное добавление корня проекта в sys.path ---
-# (Этот блок остается без изменений)
+# --- Блок исправления путей ---
 try:
     current_file_path = Path(__file__).resolve()
     project_root = current_file_path.parent.parent
     if str(project_root) not in sys.path:
-        print(f"Telegram_Bot Fix: Добавляем корень проекта в пути: {project_root}")
         sys.path.insert(0, str(project_root))
 except NameError:
     project_root = Path.cwd()
@@ -27,23 +24,24 @@ except NameError:
 
 from app.config_loader import load_settings
 
-# --- Конфигурация и глобальные переменные ---
+# --- Конфигурация ---
 NOX_CORE_API_URL = None
 NOX_STT_API_URL = None
 TEMP_AUDIO_DIR = os.path.join(project_root, "temp_audio")
-conversation_histories = {}
-MAX_HISTORY_LENGTH = 10 
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
-def _update_and_get_history(chat_id: int, user_text: str) -> list:
-    if chat_id not in conversation_histories:
-        conversation_histories[chat_id] = deque(maxlen=MAX_HISTORY_LENGTH)
-    conversation_histories[chat_id].append({"role": "user", "content": user_text})
-    return list(conversation_histories[chat_id])
+def _get_history_for_nox(user_text: str) -> list:
+    """
+    ИЗМЕНЕНО: Эта функция теперь всегда возвращает историю
+    только из одного, последнего сообщения, чтобы отключить "память"
+    и заставить Нокса фокусироваться.
+    """
+    logger.info("Работа в режиме 'без памяти'. Контекст диалога игнорируется.")
+    return [{"role": "user", "content": user_text}]
 
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -56,21 +54,21 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = update.message.chat_id
     logger.info(f"Telegram_Bot: Получено ТЕКСТОВОЕ сообщение: '{user_text}' от chat_id: {chat_id}")
 
-    history = _update_and_get_history(chat_id, user_text)
+    history = _get_history_for_nox(user_text)
     payload = {"history": history, "chat_id": chat_id, "is_voice": False}
     
-    # ИЗМЕНЕНИЕ: Используем асинхронный httpx вместо requests
     try:
         logger.info(f"Telegram_Bot: Отправка ASYNC запроса на Nox Core API: {payload}")
         async with httpx.AsyncClient() as client:
-            # Запускаем, но не ждем ответа (fire and forget)
-            await client.post(NOX_CORE_API_URL, json=payload, timeout=10) 
+            # Увеличим таймаут, чтобы дождаться ответа от Ollama
+            await client.post(NOX_CORE_API_URL, json=payload, timeout=130.0) 
     except httpx.RequestError as e:
         logger.error(f"Telegram_Bot: Ошибка сети (httpx) при обращении к Nox Core API: {e}")
         await update.message.reply_text("Прости, Искра, я не могу связаться со своим 'мозгом'.")
 
 
 async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # Эта функция остается без изменений, но будет использовать новую _get_history_for_nox
     user_id = update.message.from_user.id
     chat_id = update.message.chat_id
     allowed_user_ids = context.bot_data.get("allowed_user_ids", [])
@@ -90,7 +88,6 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
         
         logger.info(f"Telegram_Bot: Отправка аудиофайла на STT API...")
         recognized_text = None
-        # Для STT можно оставить синхронный requests, если он быстрый
         with open(downloaded_file_path, "rb") as audio_file:
             files = {"file": (os.path.basename(downloaded_file_path), audio_file)}
             stt_response = requests.post(NOX_STT_API_URL, files=files, timeout=60)
@@ -103,13 +100,12 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
         if recognized_text:
             logger.info(f"Распознанный текст: '{recognized_text}'")
-            history = _update_and_get_history(chat_id, recognized_text)
+            history = _get_history_for_nox(recognized_text)
             payload = {"history": history, "chat_id": chat_id, "is_voice": True}
             
-            # ИЗМЕНЕНИЕ: Используем асинхронный httpx и здесь
             logger.info(f"Telegram_Bot: Отправка ASYNC запроса на Nox Core API: {payload}")
             async with httpx.AsyncClient() as client:
-                await client.post(NOX_CORE_API_URL, json=payload, timeout=10)
+                await client.post(NOX_CORE_API_URL, json=payload, timeout=130.0)
         elif stt_response.status_code == 200:
              await update.message.reply_text("Прости, Искра, я не смог разобрать твое голосовое сообщение.")
 
@@ -122,7 +118,6 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 def main() -> None:
-    # (Эта функция остается без изменений)
     global NOX_CORE_API_URL, NOX_STT_API_URL
     try:
         config = load_settings()

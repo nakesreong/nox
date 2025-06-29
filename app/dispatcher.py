@@ -1,56 +1,61 @@
 # app/dispatcher.py
+"""
+Упрощенный диспетчер для новой архитектуры.
 
-from .intent_handlers import device_control_handler, general_chat_handler, math_operation_handler, get_device_status_handler # Importing the new handler
+Теперь его задача - просто передать управление универсальному обработчику.
+"""
 
+# Обрати внимание: мы импортируем только наш новый универсальный обработчик.
+# Старые (device_control_handler, math_operation_handler и т.д.) нам больше не нужны.
+from .intent_handlers import ha_service_handler
+
+# Карта теперь содержит один маршрут для всех действий с Home Assistant
 INTENT_HANDLERS_MAP = {
-    "control_device": device_control_handler.handle_device_control,
-    "general_chat": general_chat_handler.handle_general_chat,
-    "math_operation": math_operation_handler.handle_math_operation,
-    "get_device_status": get_device_status_handler.handle_get_device_status,
-    # Other specialized handlers will be listed here
+    "home_assistant_service_call": ha_service_handler.HomeAssistantServiceHandler,
 }
 
 
-def dispatch(intent: str, entities: dict, original_user_query: str = None) -> dict:
+def dispatch(intent: str, llm_json: dict, handler_instance) -> dict:
     """
-    Select and invoke the appropriate intent handler.
-    If there is no specialized handler for the intent,
-    return a result indicating that the command should be ignored.
+    Выбирает и вызывает соответствующий обработчик.
+    В новой архитектуре он в основном работает с одним универсальным обработчиком.
+
+    Args:
+        intent (str): Название намерения, чтобы найти класс обработчика.
+        llm_json (dict): JSON, сгенерированный LLM.
+        handler_instance: Уже созданный экземпляр обработчика из CoreEngine.
+
+    Returns:
+        Словарь с результатом выполнения.
     """
-    print(f"Dispatcher: Received intent '{intent}' with entities: {entities}")
-    if original_user_query:
-        print(f"Dispatcher: Original user request: '{original_user_query}'")
-
-    handler_function = INTENT_HANDLERS_MAP.get(intent)
-
-    if handler_function:
-        print(f"Dispatcher: Found handler for intent '{intent}'. Calling {handler_function.__name__}...")
+    print(f"Dispatcher: Получен интент '{intent}'. Поиск обработчика...")
+    
+    # В нашей новой схеме мы не ищем функцию, а просто проверяем,
+    # что интент соответствует нашему универсальному обработчику.
+    if intent in INTENT_HANDLERS_MAP:
+        print(f"Dispatcher: Найден обработчик для '{intent}'. Вызов метода handle...")
         try:
-            # Pass entities to the handler
-            result = handler_function(entities)
-            print(f"Dispatcher: Result from handler {handler_function.__name__}: {result}")
+            # Вызываем метод handle у уже существующего экземпляра
+            result = handler_instance.handle(llm_json)
+            print(f"Dispatcher: Результат от обработчика: {result}")
             return result
         except Exception as e:
-            error_msg = f"Error while executing handler {handler_function.__name__} for intent '{intent}': {e}"
+            error_msg = f"Ошибка при выполнении обработчика для интента '{intent}': {e}"
             print(f"Dispatcher: {error_msg}")
             import traceback
-
             traceback.print_exc()
             return {
                 "success": False,
-                "action_performed": "handler_error",
-                "details_or_error": error_msg,
-                "intent": intent,
-                "entities": entities,
+                "message_for_user": "Произошла внутренняя ошибка при выполнении команды.",
+                "details": error_msg,
             }
     else:
-        # No specialized handler found
-        unknown_intent_message = f"Intent '{intent}' is not handled (no handler)."
+        # Эта ветка теперь для непредвиденных случаев или для старых интентов,
+        # которые мы еще не удалили (например, general_chat).
+        unknown_intent_message = f"Интент '{intent}' не обрабатывается новой архитектурой."
         print(f"Dispatcher: {unknown_intent_message}")
         return {
-            "status": "ignored",
-            "reason": "unhandled_intent",
-            "intent": intent,
-            "entities": entities,
-            "details_or_error": unknown_intent_message
+            "success": False,
+            "message_for_user": "Я пока не умею делать такое.",
+            "details": unknown_intent_message
         }

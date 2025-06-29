@@ -175,3 +175,60 @@ def generate_natural_response(action_result: dict, history: List[Dict[str, str]]
     except requests.exceptions.RequestException as e:
         print(f"NLU_Engine Network Error (gen_resp): {e}")
         return "Sorry, I'm having trouble connecting to my 'brain'."
+# ЭТОТ КОД НУЖНО ДОБАВИТЬ В КОНЕЦ ФАЙЛА app/nlu_engine.py
+
+def get_json_from_llm(system_prompt: str, history: List[Dict[str, str]]) -> dict:
+    """
+    Универсальная функция для получения JSON от LLM на основе динамического промпта.
+
+    Args:
+        system_prompt (str): Системная инструкция ("шпаргалка").
+        history (List[Dict[str, str]]): История диалога.
+
+    Returns:
+        Словарь с результатом (сгенерированный JSON или ошибка).
+    """
+    if not CONFIG_DATA:
+        return {"error": "NLU_Engine: Конфигурация не загружена."}
+
+    ollama_url = CONFIG_DATA.get("ollama", {}).get("base_url")
+    model_name = CONFIG_DATA.get("ollama", {}).get("default_model")
+    
+    if not all([ollama_url, model_name]):
+        return {"error": "NLU_Engine: Конфигурация Ollama не найдена."}
+
+    api_endpoint = f"{ollama_url}/api/chat"
+    
+    # Собираем сообщения: сначала системный промпт, потом история
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(history)
+
+    payload = {"model": model_name, "messages": messages, "format": "json", "stream": False}
+    headers = {"Content-Type": "application/json"}
+
+    print(f"NLU_Engine (get_json): Отправка запроса к LLM с динамическим промптом...")
+
+    try:
+        response = requests.post(api_endpoint, json=payload, headers=headers, timeout=120)
+        response.raise_for_status()
+        response_data = response.json()
+
+        if response_data.get("message", {}).get("content"):
+            raw_json_string = response_data["message"]["content"]
+            print(f"NLU_Engine (get_json): Получен JSON от LLM: {raw_json_string}")
+            try:
+                # Очистка и парсинг JSON
+                clean_json_string = raw_json_string.strip().removeprefix("```json").removesuffix("```").strip()
+                parsed_dict = json.loads(clean_json_string)
+                return parsed_dict
+            except json.JSONDecodeError as err:
+                print(f"NLU_Engine (get_json) Error: Не удалось спарсить JSON: {err}")
+                return {"error": "JSON parsing error", "raw_response": raw_json_string}
+        else:
+            print(f"NLU_Engine (get_json) Error: Неожиданный формат ответа: {response_data}")
+            return {"error": "Unexpected response format", "raw_response": str(response_data)}
+
+    except requests.exceptions.RequestException as e:
+        print(f"NLU_Engine (get_json) Network Error: {e}")
+        return {"error": f"Network error: {e}"}
+
