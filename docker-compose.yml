@@ -11,7 +11,7 @@ services:
 #              count: all
 #              capabilities: [gpu]
 #    environment:
-#      - HUGGING_FACE_HUB_TOKEN=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
+#      - HUGGING_FACE_HUB_TOKEN=token
 #    volumes:
 #      - ./models:/root/.cache/huggingface
 #    ports:
