@@ -1,11 +1,33 @@
 version: '3.8'
 
 services:
+#  vllm:
+#    image: vllm/vllm-openai:latest
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: all
+#              capabilities: [gpu]
+#    environment:
+#      - HUGGING_FACE_HUB_TOKEN=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
+#    volumes:
+#      - ./models:/root/.cache/huggingface
+#    ports:
+#      # Открываем порт 8000 на всех сетевых интерфейсах "Предатора"
+#      - "8000:8000"
+#    command:
+#      - "--model"
+#      - "google/gemma-3n-E2B-it"
+#      - "--trust-remote-code"
+#      - "--host"
+#      - "0.0.0.0"
   ollama:
     image: ollama/ollama:latest
-    container_name: iskra_ollama
+    container_name: nox_ollama
     ports:
-      - "192.168.86.24:11434:11434"
+      - "192.168.86.54:11434:11434"
     volumes:
       - ./ollama_data:/root/.ollama
     restart: unless-stopped
@@ -20,11 +42,12 @@ services:
               count: 1
               capabilities: [gpu]
 
+
   homeassistant:
     image: homeassistant/home-assistant:stable
-    container_name: iskra_homeassistant
+    container_name: nox_homeassistant
     ports:
-      - "192.168.86.24:8123:8123"
+      - "192.168.86.54:8123:8123"
     volumes:
       - ./homeassistant_config:/config
       - /etc/localtime:/etc/localtime:ro

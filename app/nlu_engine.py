@@ -1,234 +1,173 @@
 # app/nlu_engine.py
-"""Natural language understanding using a local LLM via Ollama."""
-
+"""
+Модуль для взаимодействия с LLM с поддержкой нескольких провайдеров.
+(vLLM, Ollama)
+"""
 import yaml
 import requests
-import os
 import json
 from pathlib import Path
-from typing import Optional, Any, Dict, List
+from typing import Optional, Dict, List, Any
 
 from .config_loader import load_settings
-from pydantic import BaseModel, ValidationError
 
-# --- Pydantic Models for NLU JSON Validation ---
+# --- Абстракция для Провайдеров LLM ---
 
-class EntitiesModel(BaseModel):
-    target_device: Optional[str] = None
-    action: Optional[str] = None
-    location: Optional[str] = None
-    brightness_pct: Optional[int] = None
-    color_temp_qualitative: Optional[str] = None
-    color_temp_kelvin: Optional[int] = None
-    value: Optional[Any] = None
-    expression: Optional[str] = None
-    sensor_type: Optional[str] = None
+class BaseLLMProvider:
+    """Абстрактный базовый класс для всех провайдеров LLM."""
+    def __init__(self, config: dict):
+        self.config = config
+        self.model_name = config.get("default_model")
+        self.base_url = config.get("base_url")
+        if not self.model_name or not self.base_url:
+            raise ValueError(f"Конфигурация для провайдера неполная: отсутствует model или base_url.")
 
-class NluResponseModel(BaseModel):
-    intent: str
-    entities: Optional[EntitiesModel] = None
+    def get_json(self, system_prompt: str, history: List[Dict[str, str]]) -> dict:
+        """Метод для получения структурированного JSON."""
+        raise NotImplementedError
 
-# --- Configuration and LLM Instructions Loading ---
-CONFIG_DATA = None
-LLM_INSTRUCTIONS_DATA = None
+    def get_natural_text(self, system_prompt: str, user_prompt: str) -> str:
+        """Метод для генерации естественного текста."""
+        raise NotImplementedError
+
+class VLLMProvider(BaseLLMProvider):
+    """Провайдер для vLLM (OpenAI-совместимый API)."""
+    def __init__(self, config: dict):
+        super().__init__(config)
+        self.api_endpoint = f"{self.base_url}/chat/completions"
+        self.headers = {"Content-Type": "application/json"}
+
+    def _execute_request(self, payload: dict) -> Optional[str]:
+        try:
+            response = requests.post(self.api_endpoint, json=payload, headers=self.headers, timeout=120)
+            response.raise_for_status()
+            response_data = response.json()
+            return response_data.get("choices", [{}])[0].get("message", {}).get("content")
+        except requests.exceptions.RequestException as e:
+            print(f"VLLMProvider Network Error: {e}")
+        except (KeyError, IndexError) as e:
+            print(f"VLLMProvider Error: Неожиданная структура ответа: {e}")
+        return None
+
+    def get_json(self, system_prompt: str, history: List[Dict[str, str]]) -> dict:
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(history)
+        payload = {
+            "model": self.model_name,
+            "messages": messages,
+            "response_format": {"type": "json_object"},
+            "stream": False
+        }
+        print(f"VLLMProvider (get_json): Отправка запроса...")
+        content = self._execute_request(payload)
+        if content:
+            print(f"VLLMProvider (get_json): Получен JSON: {content}")
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                return {"error": "JSON parsing error", "raw_response": content}
+        return {"error": "Не удалось получить ответ от vLLM."}
+
+    def get_natural_text(self, system_prompt: str, user_prompt: str) -> str:
+        messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+        payload = {"model": self.model_name, "messages": messages, "stream": False}
+        print(f"VLLMProvider (gen_resp): Отправка запроса...")
+        content = self._execute_request(payload)
+        if content:
+            print(f"VLLMProvider (gen_resp): Получен ответ: {content.strip()}")
+            return content.strip()
+        return "Прости, Искра, я не могу связаться со своим 'мозгом' (vLLM)."
+
+class OllamaProvider(BaseLLMProvider):
+    """Провайдер для Ollama."""
+    def __init__(self, config: dict):
+        super().__init__(config)
+        self.api_endpoint = f"{self.base_url}/api/chat"
+        self.headers = {"Content-Type": "application/json"}
+
+    def _execute_request(self, payload: dict) -> Optional[str]:
+        try:
+            response = requests.post(self.api_endpoint, json=payload, headers=self.headers, timeout=120)
+            response.raise_for_status()
+            response_data = response.json()
+            return response_data.get("message", {}).get("content")
+        except requests.exceptions.RequestException as e:
+            print(f"OllamaProvider Network Error: {e}")
+        except KeyError:
+            print(f"OllamaProvider Error: Неожиданная структура ответа.")
+        return None
+
+    def get_json(self, system_prompt: str, history: List[Dict[str, str]]) -> dict:
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(history)
+        payload = {"model": self.model_name, "messages": messages, "format": "json", "stream": False}
+        print(f"OllamaProvider (get_json): Отправка запроса...")
+        content = self._execute_request(payload)
+        if content:
+            print(f"OllamaProvider (get_json): Получен JSON: {content}")
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                return {"error": "JSON parsing error", "raw_response": content}
+        return {"error": "Не удалось получить ответ от Ollama."}
+
+    def get_natural_text(self, system_prompt: str, user_prompt: str) -> str:
+        messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+        payload = {"model": self.model_name, "messages": messages, "stream": False}
+        print(f"OllamaProvider (gen_resp): Отправка запроса...")
+        content = self._execute_request(payload)
+        if content:
+            print(f"OllamaProvider (gen_resp): Получен ответ: {content.strip()}")
+            return content.strip()
+        return "Прости, Искра, я не могу связаться со своим 'мозгом' (Ollama)."
+
+# --- Инициализация и Фабрика Провайдеров ---
+
+LLM_PROVIDER_INSTANCE: Optional[BaseLLMProvider] = None
+LLM_INSTRUCTIONS_DATA: Optional[Dict] = None
 
 try:
-    CONFIG_DATA = load_settings()
-    if "ollama" not in CONFIG_DATA:
-        raise ValueError("Section 'ollama' not found in configs/settings.yaml")
-    print("NLU_Engine: Main configuration (settings.yaml) loaded successfully.")
-
-    current_dir_nlu = Path(__file__).resolve().parent
-    project_root_nlu = current_dir_nlu.parent
-
-    instructions_path_nlu = project_root_nlu / "configs" / "llm_instructions.yaml"
-    with instructions_path_nlu.open("r", encoding="utf-8") as f:
+    config_data = load_settings()
+    # Загружаем инструкции
+    instructions_path = Path(__file__).resolve().parent.parent / "configs" / "llm_instructions.yaml"
+    with instructions_path.open("r", encoding="utf-8") as f:
         LLM_INSTRUCTIONS_DATA = yaml.safe_load(f)
 
-    if not LLM_INSTRUCTIONS_DATA or "intent_extraction_instruction" not in LLM_INSTRUCTIONS_DATA:
-        raise ValueError("Key 'intent_extraction_instruction' not found in configs/llm_instructions.yaml")
-    print("NLU_Engine: LLM instructions (llm_instructions.yaml) loaded successfully.")
+    # Фабрика: определяем, какого провайдера создавать
+    if "vllm" in config_data:
+        print("NLU_Engine: Обнаружена конфигурация 'vllm'. Создание VLLMProvider.")
+        LLM_PROVIDER_INSTANCE = VLLMProvider(config_data["vllm"])
+    elif "ollama" in config_data:
+        print("NLU_Engine: Обнаружена конфигурация 'ollama'. Создание OllamaProvider.")
+        LLM_PROVIDER_INSTANCE = OllamaProvider(config_data["ollama"])
+    else:
+        raise ValueError("Не найдена конфигурация ни для 'vllm', ни для 'ollama' в settings.yaml")
 
 except Exception as e:
-    print(f"NLU_Engine Error: Error during configuration/instructions loading: {e}")
-    CONFIG_DATA = None
+    print(f"NLU_Engine CRITICAL: Ошибка при инициализации: {e}")
+    LLM_PROVIDER_INSTANCE = None
     LLM_INSTRUCTIONS_DATA = None
-# --- End of Loading ---
 
-
-# ИЗМЕНЕНИЕ: Сигнатура функции теперь принимает историю диалога
-def get_structured_nlu_from_text(history: List[Dict[str, str]]) -> dict:
-    if not CONFIG_DATA or not LLM_INSTRUCTIONS_DATA:
-        return {"error": "NLU_Engine: LLM configuration or instructions not loaded."}
-
-    ollama_url = CONFIG_DATA.get("ollama", {}).get("base_url")
-    model_name = CONFIG_DATA.get("ollama", {}).get("default_model")
-    intent_extraction_instruction = LLM_INSTRUCTIONS_DATA.get("intent_extraction_instruction", "")
-    examples = LLM_INSTRUCTIONS_DATA.get("examples", [])
-    
-    if not all([ollama_url, model_name, intent_extraction_instruction]):
-        return {"error": "NLU_Engine: Ollama configuration not found."}
-
-    api_endpoint = f"{ollama_url}/api/chat"
-    
-    messages = [{"role": "system", "content": intent_extraction_instruction}]
-    
-    # ИЗМЕНЕНИЕ: Этот цикл теперь правильно обрабатывает ОБА формата примеров
-    for example in examples:
-        user_query = example.get("user_query")
-        assistant_json = example.get("assistant_json")
-
-        if user_query and assistant_json:
-            # Если user_query - это строка (старый формат)
-            if isinstance(user_query, str):
-                messages.append({"role": "user", "content": user_query})
-            # Если user_query - это список (новый формат для контекста)
-            elif isinstance(user_query, list):
-                messages.extend(user_query)
-            
-            messages.append({"role": "assistant", "content": str(assistant_json).strip()})
-
-    # Добавляем реальную историю диалога в конец
-    if history and history[-1].get("role") == "user":
-        last_user_message = history[-1]["content"]
-        messages.append({"role": "user", "content": last_user_message})
-    else:
-        # Обработка случая, если история пуста или некорректна
-        return {"error": "NLU_Engine: No valid user message found in history."}
-
-    payload = {"model": model_name, "messages": messages, "format": "json", "stream": False}
-    headers = {"Content-Type": "application/json"}
-
-    print(f"NLU_Engine: Sending NLU request to Ollama with model {model_name}.")
-
-    try:
-        response = requests.post(api_endpoint, json=payload, headers=headers, timeout=120)
-        response.raise_for_status()
-        response_data = response.json()
-
-        if response_data.get("message", {}).get("content"):
-            raw_json_string = response_data["message"]["content"]
-            print(f"NLU_Engine: Received JSON string from LLM for NLU: {raw_json_string}")
-            try:
-                # Очистка JSON строки от возможных "артефактов" LLM
-                clean_json_string = raw_json_string.strip().removeprefix("```json").removesuffix("```").strip()
-                parsed_dict = json.loads(clean_json_string)
-                validated_nlu = NluResponseModel(**parsed_dict)
-                print("NLU_Engine: NLU JSON successfully parsed and VALIDATED by Pydantic.")
-                return validated_nlu.model_dump()
-            except (json.JSONDecodeError, ValidationError) as err:
-                print(f"NLU_Engine Error: Failed to parse or validate JSON from LLM: {err}")
-                return {"error": "NLU JSON parsing/validation error", "raw_response": raw_json_string}
-        else:
-            print(f"NLU_Engine Error: Unexpected NLU response format from Ollama: {response_data}")
-            return {"error": "Unexpected NLU response format", "raw_response": str(response_data)}
-
-    except requests.exceptions.RequestException as e:
-        print(f"NLU_Engine Network Error: {e}")
-        return {"error": f"NLU_Engine Network error: {e}"}
-
-
-# ИЗМЕНЕНИЕ: Сигнатура функции теперь принимает всю историю для контекста
-def generate_natural_response(action_result: dict, history: List[Dict[str, str]]) -> str:
-    if not CONFIG_DATA or not LLM_INSTRUCTIONS_DATA:
-        return "Sorry, my response module is not configured."
-
-    ollama_url = CONFIG_DATA.get("ollama", {}).get("base_url")
-    model_name = CONFIG_DATA.get("ollama", {}).get("default_model")
-    response_gen_instruction = LLM_INSTRUCTIONS_DATA.get("response_generation_instruction_simple", "")
-
-    if not all([ollama_url, model_name, response_gen_instruction]):
-        return "Sorry, I can't formulate a response right now (config issue)."
-
-    # ИЗМЕНЕНИЕ: Строим контекст для генерации ответа, включая историю
-    context_for_llm_parts = []
-    
-    # Сначала добавляем историю диалога
-    context_for_llm_parts.append("This is the recent conversation history (last message is the user's current request):")
-    for message in history:
-        context_for_llm_parts.append(f"- {message['role']}: {message['content']}")
-    
-    # Затем добавляем результат выполненного действия
-    context_for_llm_parts.append("\nInformation about the action that was just performed:")
-    if "success" in action_result:
-        context_for_llm_parts.append(f"- Success: {action_result.get('success')}")
-        details = action_result.get("message_for_user", action_result.get("details_or_error", "no details"))
-        context_for_llm_parts.append(f"- System Details: {details}")
-    else:
-        context_for_llm_parts.append(f"- System Details: {action_result}")
-
-    context_for_llm = "\n".join(context_for_llm_parts)
-
-    api_endpoint = f"{ollama_url}/api/chat"
-    messages = [{"role": "system", "content": response_gen_instruction}, {"role": "user", "content": context_for_llm}]
-    payload = {"model": model_name, "messages": messages, "stream": False}
-    headers = {"Content-Type": "application/json"}
-
-    print(f"NLU_Engine (gen_resp): Sending response generation request to Ollama.")
-    try:
-        response = requests.post(api_endpoint, json=payload, headers=headers, timeout=120)
-        response.raise_for_status()
-        response_data = response.json()
-        natural_response = response_data.get("message", {}).get("content", "").strip()
-        print(f"NLU_Engine (gen_resp): Received natural response from LLM: {natural_response}")
-        return natural_response
-    except requests.exceptions.RequestException as e:
-        print(f"NLU_Engine Network Error (gen_resp): {e}")
-        return "Sorry, I'm having trouble connecting to my 'brain'."
-# ЭТОТ КОД НУЖНО ДОБАВИТЬ В КОНЕЦ ФАЙЛА app/nlu_engine.py
+# --- Публичные функции модуля ---
 
 def get_json_from_llm(system_prompt: str, history: List[Dict[str, str]]) -> dict:
-    """
-    Универсальная функция для получения JSON от LLM на основе динамического промпта.
+    """Универсальная функция для получения JSON от активного провайдера LLM."""
+    if not LLM_PROVIDER_INSTANCE:
+        return {"error": "NLU_Engine: Провайдер LLM не инициализирован."}
+    return LLM_PROVIDER_INSTANCE.get_json(system_prompt, history)
 
-    Args:
-        system_prompt (str): Системная инструкция ("шпаргалка").
-        history (List[Dict[str, str]]): История диалога.
+def generate_natural_response(action_result: dict, history: List[Dict[str, str]]) -> str:
+    """Генерирует естественный текстовый ответ от активного провайдера LLM."""
+    if not LLM_PROVIDER_INSTANCE or not LLM_INSTRUCTIONS_DATA:
+        return "Прости, мой модуль ответов не настроен."
 
-    Returns:
-        Словарь с результатом (сгенерированный JSON или ошибка).
-    """
-    if not CONFIG_DATA:
-        return {"error": "NLU_Engine: Конфигурация не загружена."}
-
-    ollama_url = CONFIG_DATA.get("ollama", {}).get("base_url")
-    model_name = CONFIG_DATA.get("ollama", {}).get("default_model")
+    system_prompt = LLM_INSTRUCTIONS_DATA.get("response_generation_instruction_simple", "")
     
-    if not all([ollama_url, model_name]):
-        return {"error": "NLU_Engine: Конфигурация Ollama не найдена."}
+    # Формируем контекст для LLM
+    context_parts = ["Контекст диалога:"]
+    context_parts.extend([f"- {msg['role']}: {msg['content']}" for msg in history])
+    context_parts.append("\nРезультат последнего выполненного действия:")
+    context_parts.append(f"- {action_result}")
+    user_prompt = "\n".join(context_parts)
 
-    api_endpoint = f"{ollama_url}/api/chat"
-    
-    # Собираем сообщения: сначала системный промпт, потом история
-    messages = [{"role": "system", "content": system_prompt}]
-    messages.extend(history)
-
-    payload = {"model": model_name, "messages": messages, "format": "json", "stream": False}
-    headers = {"Content-Type": "application/json"}
-
-    print(f"NLU_Engine (get_json): Отправка запроса к LLM с динамическим промптом...")
-
-    try:
-        response = requests.post(api_endpoint, json=payload, headers=headers, timeout=120)
-        response.raise_for_status()
-        response_data = response.json()
-
-        if response_data.get("message", {}).get("content"):
-            raw_json_string = response_data["message"]["content"]
-            print(f"NLU_Engine (get_json): Получен JSON от LLM: {raw_json_string}")
-            try:
-                # Очистка и парсинг JSON
-                clean_json_string = raw_json_string.strip().removeprefix("```json").removesuffix("```").strip()
-                parsed_dict = json.loads(clean_json_string)
-                return parsed_dict
-            except json.JSONDecodeError as err:
-                print(f"NLU_Engine (get_json) Error: Не удалось спарсить JSON: {err}")
-                return {"error": "JSON parsing error", "raw_response": raw_json_string}
-        else:
-            print(f"NLU_Engine (get_json) Error: Неожиданный формат ответа: {response_data}")
-            return {"error": "Unexpected response format", "raw_response": str(response_data)}
-
-    except requests.exceptions.RequestException as e:
-        print(f"NLU_Engine (get_json) Network Error: {e}")
-        return {"error": f"Network error: {e}"}
-
+    return LLM_PROVIDER_INSTANCE.get_natural_text(system_prompt, user_prompt)
