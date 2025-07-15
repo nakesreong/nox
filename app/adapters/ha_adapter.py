@@ -1,105 +1,86 @@
 # app/adapters/ha_adapter.py
-"""
-Модуль-адаптер для взаимодействия с API Home Assistant.
-(Финальная версия с защитой от опечаток)
-"""
-import sys
-from pathlib import Path
-
-# --- Блок для исправления путей ---
-try:
-    project_root = Path(__file__).resolve().parent.parent.parent
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
-except (IndexError, NameError):
-    project_root = Path.cwd()
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
-
 import requests
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
-from app.config_loader import load_settings
+from ..config_loader import load_settings
 
 class HomeAssistantAdapter:
+    """Адаптер для взаимодействия с Home Assistant API."""
     def __init__(self):
         print("HA_Adapter: Инициализация...")
-        try:
-            settings = load_settings()
-            ha_config = settings.get("home_assistant", {})
-            self.base_url = ha_config.get("base_url")
-            self.token = ha_config.get("long_lived_access_token")
-            if not self.base_url or not self.token:
-                raise ValueError("URL или токен для Home Assistant не найдены.")
-            self.headers = {
-                "Authorization": f"Bearer {self.token}",
-                "Content-Type": "application/json",
-            }
+        settings = load_settings()
+        ha_config = settings.get("home_assistant", {})
+        self.base_url = ha_config.get("base_url")
+        self.token = ha_config.get("long_lived_access_token")
+        self.headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+        }
+        if self.base_url and self.token:
             print("HA_Adapter: Конфигурация Home Assistant успешно загружена.")
-        except (ValueError, FileNotFoundError) as e:
-            print(f"HA_Adapter: КРИТИЧЕСКАЯ ОШИБКА - {e}")
+        else:
+            print("HA_Adapter_ERROR: base_url или token не найдены в конфигурации!")
             self.base_url = None
 
-    def get_all_entities(self) -> Optional[List[Dict[str, Any]]]:
-        if not self.base_url: return None
-        api_url = f"{self.base_url}/api/states"
+    def get_all_entities(self) -> List[Dict[str, Any]]:
+        """Получает и форматирует все сущности из Home Assistant."""
+        if not self.base_url:
+            return []
         try:
-            response = requests.get(api_url, headers=self.headers, timeout=15)
+            response = requests.get(f"{self.base_url}/api/states", headers=self.headers, timeout=10)
             response.raise_for_status()
+            entities = response.json()
+            
             formatted_entities = []
-            for entity in response.json():
-                entity_id = entity.get("entity_id")
-                domain = entity_id.split('.')[0] if '.' in entity_id else 'unknown'
-                attributes = entity.get("attributes", {})
-                friendly_name = attributes.get("friendly_name", entity_id)
+            for entity in entities:
                 formatted_entities.append({
-                    "entity_id": entity_id, "domain": domain,
-                    "friendly_name": friendly_name, "state": entity.get("state"), 
-                    "attributes": attributes
+                    "entity_id": entity.get("entity_id"),
+                    "domain": entity.get("entity_id", "").split(".")[0],
+                    "friendly_name": entity.get("attributes", {}).get("friendly_name"),
+                    "state": entity.get("state"),
+                    "attributes": entity.get("attributes", {}),
                 })
             return formatted_entities
         except requests.exceptions.RequestException as e:
-            print(f"HA_Adapter Error: Ошибка сети при получении сущностей: {e}")
-            return None
+            print(f"HA_Adapter_ERROR: Не удалось получить сущности из Home Assistant: {e}")
+            return []
 
-    def call_service(self, service_call_json: dict) -> dict:
+    def call_service(self, llm_json: Dict[str, Any]) -> Dict[str, Any]:
+        """Вызывает сервис в Home Assistant на основе JSON от LLM."""
         if not self.base_url:
-            return {"success": False, "error": "Адаптер HA не инициализирован."}
+            return {"success": False, "message": "Home Assistant не сконфигурирован."}
 
-        service = service_call_json.get("service")
-        if not service or '.' not in service:
-            return {"success": False, "error": f"Некорректный формат сервиса: {service}"}
+        service = llm_json.get("service")
+        if not service or "." not in service:
+            return {"success": False, "message": f"Неверный формат сервиса: {service}"}
+        
+        domain, action = service.split(".", 1)
+        url = f"{self.base_url}/api/services/{domain}/{action}"
+        
+        target_data = llm_json.get("target") or llm_json.get("taarget") or llm_json.get("tawget")
+        service_data = llm_json.get("service_data", {})
+        
+        payload = {**target_data, **service_data} if target_data else service_data
 
-        domain, action = service.split('.', 1)
-        api_url = f"{self.base_url}/api/services/{domain}/{action}"
-        
-        # --- УЛУЧШЕННАЯ ЛОГИКА С ЗАЩИТОЙ ОТ ОПЕЧАТОК ---
-        target_data = {}
-        possible_keys = ["target", "taarget", "tawget"]
-        for key in possible_keys:
-            if key in service_call_json:
-                target_data = service_call_json.get(key, {})
-                break
-        
-        service_data = service_call_json.get("service_data", {})
-        payload = {**target_data, **service_data}
-        
-        print(f"HA_Adapter: Выполняется POST-запрос к {api_url} с телом: {payload}")
-        
-        # Проверка, что entity_id есть в payload, если это не общий сервис
-        if not payload.get("entity_id"):
-             print(f"HA_Adapter Warning: В теле запроса отсутствует entity_id. Запрос может не сработать.")
-
-
+        print(f"HA_Adapter: Выполняется POST-запрос к {url} с телом: {payload}")
         try:
-            response = requests.post(api_url, headers=self.headers, json=payload, timeout=10)
+            response = requests.post(url, headers=self.headers, json=payload, timeout=10)
             response.raise_for_status()
-            print(f"HA_Adapter: Сервис {service} успешно вызван.")
-            return {"success": True, "message": f"Сервис {service} для {payload.get('entity_id')} успешно вызван."}
-        except requests.exceptions.HTTPError as http_err:
-            error_details = http_err.response.text
-            print(f"HA_Adapter Error: Ошибка HTTP при вызове сервиса: {http_err}. Детали: {error_details}")
-            return {"success": False, "error": f"Ошибка HTTP: {http_err.response.status_code}", "details": error_details}
+            
+            # [ИСПРАВЛЕНИЕ] Логируем полный ответ от Home Assistant
+            response_content = response.json()
+            print(f"HA_Adapter: Получен успешный ответ (2xx) от Home Assistant. Тело ответа: {response_content}")
+            
+            return {
+                "success": True,
+                "message": f"Сервис {service} для {payload.get('entity_id')} успешно вызван.",
+                "message_for_user": f"Сервис {service} для {payload.get('entity_id')} успешно вызван."
+            }
+        except requests.exceptions.HTTPError as e:
+            error_details = e.response.text
+            print(f"HA_Adapter_ERROR: HTTP-ошибка при вызове сервиса: {e}. Ответ сервера: {error_details}")
+            return {"success": False, "message": f"Ошибка от Home Assistant: {error_details}"}
         except requests.exceptions.RequestException as e:
-            print(f"HA_Adapter Error: Ошибка сети при вызове сервиса: {e}")
-            return {"success": False, "error": f"Ошибка сети: {e}"}
+            print(f"HA_Adapter_ERROR: Сетевая ошибка при вызове сервиса: {e}")
+            return {"success": False, "message": f"Сетевая ошибка: {e}"}
+

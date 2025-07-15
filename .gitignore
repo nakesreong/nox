@@ -28,10 +28,10 @@ share/python-wheels/
 MANIFEST
 
 # PyInstaller
-#  Usually these files are written by a Python script from a template
-#  before PyInstaller builds the executable, so you can commit the
-#  original sources and let PyInstaller generate these files at build time.
-#  Bootstrapped build files typically end up in a temporary directory.
+#  Usually these files are written by a Python script from a template
+#  before PyInstaller builds the executable, so you can commit the
+#  original sources and let PyInstaller generate these files at build time.
+#  Bootstrapped build files typically end up in a temporary directory.
 *.manifest
 *.spec
 
@@ -134,9 +134,24 @@ dmypy.json
 ollama_data/
 homeassistant_config/
 
+# Nox Project Specific
 configs/settings.yaml
 configs/*
 !configs/settings.yaml.example
 temp_audio/
 temp_audio_mic/
 temp_audio_stt/
+
+# --- LangChain & AI Models ---
+# Игнорируем директорию с векторной базой данных FAISS
+_vector_store/
+
+# Игнорируем директорию, куда MCP серверы могут сохранять свои данные
+mcp_servers/memory/_memory_storage/
+
+# Кэш моделей от HuggingFace/sentence-transformers.
+# Хотя обычно он находится в домашней директории, некоторые конфигурации
+# могут создавать локальный кэш.
+.cache/
+huggingface/
+

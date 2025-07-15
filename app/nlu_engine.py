@@ -128,12 +128,10 @@ LLM_INSTRUCTIONS_DATA: Optional[Dict] = None
 
 try:
     config_data = load_settings()
-    # Загружаем инструкции
     instructions_path = Path(__file__).resolve().parent.parent / "configs" / "llm_instructions.yaml"
     with instructions_path.open("r", encoding="utf-8") as f:
         LLM_INSTRUCTIONS_DATA = yaml.safe_load(f)
 
-    # Фабрика: определяем, какого провайдера создавать
     if "vllm" in config_data:
         print("NLU_Engine: Обнаружена конфигурация 'vllm'. Создание VLLMProvider.")
         LLM_PROVIDER_INSTANCE = VLLMProvider(config_data["vllm"])
@@ -151,17 +149,18 @@ except Exception as e:
 # --- Публичные функции модуля ---
 
 def get_json_from_llm(system_prompt: str, history: List[Dict[str, str]]) -> dict:
-    """Универсальная функция для получения JSON от активного провайдера LLM."""
     if not LLM_PROVIDER_INSTANCE:
         return {"error": "NLU_Engine: Провайдер LLM не инициализирован."}
     return LLM_PROVIDER_INSTANCE.get_json(system_prompt, history)
 
-def generate_natural_response(action_result: dict, history: List[Dict[str, str]]) -> str:
+# [ИСПРАВЛЕНИЕ] Изменяем сигнатуру функции, чтобы она принимала system_prompt
+def generate_natural_response(system_prompt: str, action_result: dict, history: List[Dict[str, str]]) -> str:
     """Генерирует естественный текстовый ответ от активного провайдера LLM."""
-    if not LLM_PROVIDER_INSTANCE or not LLM_INSTRUCTIONS_DATA:
+    if not LLM_PROVIDER_INSTANCE:
         return "Прости, мой модуль ответов не настроен."
 
-    system_prompt = LLM_INSTRUCTIONS_DATA.get("response_generation_instruction_simple", "")
+    # [ИСПРАВЛЕНИЕ] Мы больше не берем system_prompt из файла, а используем тот, что нам передали.
+    # system_prompt = LLM_INSTRUCTIONS_DATA.get("response_generation_instruction_simple", "")
     
     # Формируем контекст для LLM
     context_parts = ["Контекст диалога:"]
