@@ -22,12 +22,9 @@ class MemoryManager:
         
         os.makedirs(VECTOR_STORE_PATH, exist_ok=True)
 
-        # [ИСПРАВЛЕНИЕ] Создаем словарь с параметрами для модели эмбеддингов.
-        # Мы явно указываем, что все вычисления должны производиться на CPU.
         model_kwargs = {'device': 'cpu'}
         
         print(f"MemoryManager: Загрузка модели эмбеддингов '{EMBEDDING_MODEL_NAME}' на CPU...")
-        # Передаем эти параметры при инициализации
         self.embeddings = HuggingFaceEmbeddings(
             model_name=EMBEDDING_MODEL_NAME,
             model_kwargs=model_kwargs
@@ -70,10 +67,22 @@ class MemoryManager:
     def retrieve_from_memory(self, query: str, k: int = 3) -> List[str]:
         """
         Ищет в памяти k наиболее релевантных фрагментов для данного запроса.
+        [ИЗМЕНЕНИЕ] Использует поиск с оценкой релевантности для лучшей отладки.
         """
         print(f"MemoryManager: Поиск в памяти по запросу: '{query}'")
-        results = self.vector_store.similarity_search(query, k=k)
         
-        retrieved_texts = [doc.page_content for doc in results]
-        print(f"MemoryManager: Найдено {len(retrieved_texts)} релевантных фрагментов.")
+        # [ИЗМЕНЕНИЕ] Используем similarity_search_with_score, чтобы видеть, насколько релевантны результаты.
+        # FAISS использует L2-дистанцию, поэтому чем МЕНЬШЕ score, тем БОЛЕЕ релевантен документ.
+        results_with_scores = self.vector_store.similarity_search_with_score(query, k=k)
+        
+        print("MemoryManager: Результаты поиска с оценкой (чем меньше, тем лучше):")
+        retrieved_texts = []
+        for doc, score in results_with_scores:
+            print(f"  - Score: {score:.4f}, Content: '{doc.page_content[:80]}...'")
+            # [ИЗМЕНЕНИЕ] Добавляем "фильтр адекватности". Если результат слишком "далек" по смыслу (score > 0.7),
+            # мы его отбрасываем. Этот порог (0.7) можно и нужно будет настраивать.
+            if score < 0.7:
+                 retrieved_texts.append(doc.page_content)
+
+        print(f"MemoryManager: Найдено {len(retrieved_texts)} релевантных фрагментов после фильтрации.")
         return retrieved_texts

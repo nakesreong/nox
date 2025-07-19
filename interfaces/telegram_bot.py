@@ -8,6 +8,7 @@ import requests
 import httpx
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from telegram import Update
+from collections import deque
 
 # --- Блок исправления путей ---
 try:
@@ -28,20 +29,31 @@ from app.config_loader import load_settings
 NOX_CORE_API_URL = None
 NOX_STT_API_URL = None
 TEMP_AUDIO_DIR = os.path.join(project_root, "temp_audio")
+# [ИЗМЕНЕНИЕ] Определяем, сколько последних сообщений хранить в краткосрочной памяти
+SHORT_TERM_MEMORY_LIMIT = 10 
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
-def _get_history_for_nox(user_text: str) -> list:
+def _get_history_for_nox(context: ContextTypes.DEFAULT_TYPE, user_text: str) -> list:
     """
-    ИЗМЕНЕНО: Эта функция теперь всегда возвращает историю
-    только из одного, последнего сообщения, чтобы отключить "память"
-    и заставить Нокса фокусироваться.
+    [ИЗМЕНЕНИЕ] Эта функция теперь управляет краткосрочной памятью.
+    Она хранит последние сообщения в context.chat_data и возвращает их.
     """
-    logger.info("Работа в режиме 'без памяти'. Контекст диалога игнорируется.")
-    return [{"role": "user", "content": user_text}]
+    # Получаем или создаем историю для данного чата
+    if 'history' not in context.chat_data:
+        # Используем deque для автоматического ограничения размера
+        context.chat_data['history'] = deque(maxlen=SHORT_TERM_MEMORY_LIMIT)
+    
+    # Добавляем текущее сообщение пользователя в историю
+    context.chat_data['history'].append({"role": "user", "content": user_text})
+    
+    # Возвращаем всю историю в виде списка
+    history_list = list(context.chat_data['history'])
+    logger.info(f"Сформирована история из {len(history_list)} сообщений.")
+    return history_list
 
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -54,13 +66,13 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = update.message.chat_id
     logger.info(f"Telegram_Bot: Получено ТЕКСТОВОЕ сообщение: '{user_text}' от chat_id: {chat_id}")
 
-    history = _get_history_for_nox(user_text)
+    # [ИЗМЕНЕНИЕ] Теперь мы передаем context для управления историей
+    history = _get_history_for_nox(context, user_text)
     payload = {"history": history, "chat_id": chat_id, "is_voice": False}
     
     try:
-        logger.info(f"Telegram_Bot: Отправка ASYNC запроса на Nox Core API: {payload}")
+        logger.info(f"Telegram_Bot: Отправка ASYNC запроса на Nox Core API...")
         async with httpx.AsyncClient() as client:
-            # Увеличим таймаут, чтобы дождаться ответа от Ollama
             await client.post(NOX_CORE_API_URL, json=payload, timeout=130.0) 
     except httpx.RequestError as e:
         logger.error(f"Telegram_Bot: Ошибка сети (httpx) при обращении к Nox Core API: {e}")
@@ -68,7 +80,6 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # Эта функция остается без изменений, но будет использовать новую _get_history_for_nox
     user_id = update.message.from_user.id
     chat_id = update.message.chat_id
     allowed_user_ids = context.bot_data.get("allowed_user_ids", [])
@@ -100,10 +111,11 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
         if recognized_text:
             logger.info(f"Распознанный текст: '{recognized_text}'")
-            history = _get_history_for_nox(recognized_text)
+            # [ИЗМЕНЕНИЕ] Теперь мы передаем context для управления историей
+            history = _get_history_for_nox(context, recognized_text)
             payload = {"history": history, "chat_id": chat_id, "is_voice": True}
             
-            logger.info(f"Telegram_Bot: Отправка ASYNC запроса на Nox Core API: {payload}")
+            logger.info(f"Telegram_Bot: Отправка ASYNC запроса на Nox Core API...")
             async with httpx.AsyncClient() as client:
                 await client.post(NOX_CORE_API_URL, json=payload, timeout=130.0)
         elif stt_response.status_code == 200:
