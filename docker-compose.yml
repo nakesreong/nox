@@ -1,37 +1,46 @@
-version: '3.8'
+# docker-compose.yml (версия 3, правильная)
+
+# Убрали 'version' по совету Docker
+#networks:
+#  nox_network:
+#    driver: bridge
+
+volumes:
+  ollama_data:
+  # Этот том теперь будет использоваться контейнером nox-core
+  lancedb_data:
+  homeassistant_config:
 
 services:
-#  vllm:
-#    image: vllm/vllm-openai:latest
-#    deploy:
-#      resources:
-#        reservations:
-#          devices:
-#            - driver: nvidia
-#              count: all
-#              capabilities: [gpu]
-#    volumes:
-#      - ./models:/root/.cache/huggingface
-#    ports:
-#      # Открываем порт 8000 на всех сетевых интерфейсах "Предатора"
-#      - "8000:8000"
-#    command:
-#      - "--model"
-#      - "google/gemma-3n-E2B-it"
-#      - "--trust-remote-code"
-#      - "--host"
-#      - "0.0.0.0"
+  nox_core:
+    # 'build: .' остается, чтобы собрать образ с зависимостями
+    build: .
+    container_name: nox-core
+    networks:
+      - nox_network
+    ports:
+      - "8000:8000"
+    volumes:
+      # ИЗМЕНЕНИЕ: Подключаем всю текущую папку (.) как /app в контейнере
+      - .:/app
+      # Том для данных LanceDB остается
+      - lancedb_data:/app/lancedb_data
+    environment:
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama-gemma3n:11434}
+      - HA_BASE_URL=${HA_BASE_URL:-http://nox_homeassistant:8123}
+      - HA_TOKEN=${HA_TOKEN}
+    depends_on:
+      - ollama
+      # homeassistant больше не в depends_on, т.к. мы можем ходить на него по внешнему IP
+    restart: unless-stopped
+
   ollama:
     image: ollama/ollama:latest
-    container_name: nox_ollama
-    ports:
-      - "192.168.86.54:11434:11434"
+    container_name: ollama-gemma3n
+    networks:
+      - nox_network
     volumes:
-      - ./ollama_data:/root/.ollama
-    restart: unless-stopped
-    # Добавляем переменные окружения здесь
-    environment:
-      - OLLAMA_KEEP_ALIVE=-1
+      - ollama_data:/root/.ollama
     deploy:
       resources:
         reservations:
@@ -39,14 +48,43 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    environment:
+      - OLLAMA_KEEP_ALIVE=-1
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
 
+  # СЕРВИС LANCEDB ПОЛНОСТЬЮ УДАЛЕН
 
   homeassistant:
     image: homeassistant/home-assistant:stable
     container_name: nox_homeassistant
+    networks:
+      - nox_network
     ports:
-      - "192.168.86.54:8123:8123"
+      - "8123:8123"
     volumes:
-      - ./homeassistant_config:/config
+      - homeassistant_config:/config
       - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
+
+  telegram_bot:
+    build:
+      context: .
+      dockerfile: telegram_bot.Dockerfile
+    container_name: nox-telegram-bot
+    networks:
+      - nox_network # В той же сети, чтобы видеть nox-core
+    environment:
+      # Переменные будут браться из .env файла
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - TELEGRAM_ALLOWED_IDS=${TELEGRAM_ALLOWED_IDS}
+      - NOX_CORE_URL=http://nox-core:8000/command/telegram
+    restart: unless-stopped
+    depends_on:
+      - nox_core
+
+# Сеть все еще нужна для общения nox-core с ollama и homeassistant по именам
+networks:
+  nox_network:
+    driver: bridge

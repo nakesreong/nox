@@ -155,3 +155,4 @@ mcp_servers/memory/_memory_storage/
 .cache/
 huggingface/
 
+\n# Файл с секретными переменными окружения\n.env
