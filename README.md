@@ -1,92 +1,28 @@
-# Nox - Personal AI Assistant
+# Nox: An Autonomous AI Agent Core
 
-## About the Project
+## Overview
 
-**Nox** is a local voice and text controlled assistant developed as a human–AI collaboration experiment. The project explores what is possible using modern language models, Whisper speech recognition and a modular service design.
+Nox is not just a chatbot. It is an advanced, autonomous AI agent core designed for complex, multi-step tasks and persistent, stateful interaction. Built on a sophisticated microservices architecture and powered by the LangGraph engine, Nox represents a shift from simple prompt-response models to a genuine thinking and acting entity.
+
+The core philosophy of Nox is to create a true AI partner, capable of reasoning, planning, and executing tasks while maintaining a continuous, evolving memory of its interactions and experiences.
 
 ## Key Features
 
-- **Local LLM** via Ollama for privacy and speed
-- **Microservice architecture** with separate API and STT services
-- **Smart home integration** with Home Assistant
-- **Device status reports** on request
-- **Safe calculator** powered by AST parsing
-- **Interfaces** via Telegram bot or microphone with a wake word
+* **Agentic Mind:** At its heart, Nox utilizes the **LangGraph** library to implement a **ReAct (Reason + Act) cycle**. This allows the agent to think iteratively, form plans, use tools, observe the results, and adapt its strategy until the user's goal is achieved.
+* **Dual-Horizon Memory:** Nox possesses a two-tiered memory system for robust contextual understanding:
+    * **Short-Term Memory:** A conversational buffer ensures immediate context is never lost during an ongoing dialogue.
+    * **Long-Term Memory:** Powered by a `LanceDB` vector store, Nox archives the essence of important interactions, allowing it to retrieve relevant past experiences to inform current decisions.
+* **Extensible Toolbelt:** Nox is designed to interact with the world through a flexible set of tools. The initial implementation includes seamless integration with Home Assistant, enabling it to control smart home devices and perceive the physical environment.
+* **Microservice Architecture:** The entire ecosystem is orchestrated via Docker Compose, separating concerns into independent, resilient services:
+    * **`nox-core`**: The central brain running the LangGraph agent.
+    * **`ollama`**: The heart, serving the foundational language model.
+    * **`homeassistant`**: The hands, providing the interface to the real world.
+    * **`telegram_bot`**: The voice and ears, facilitating natural communication with the user.
 
-## Technology Stack
+## Architecture
 
-- **Language:** Python
-- **AI/LLM:** Ollama, Whisper
-- **Smart Home:** Home Assistant
-- **Interface:** `python-telegram-bot`
-- **API:** `FastAPI`, `uvicorn`
-- **Wake word:** `pvporcupine`
-- **Configuration:** PyYAML
-- **Data validation:** `Pydantic`
+Nox is built as a distributed system of interconnected services. A user's message, received via the Telegram bot, triggers the `nox-core` agent. The agent, leveraging its dual memory, enters a reasoning loop powered by LangGraph. It can autonomously decide to call upon its tools, such as the Home Assistant integration, to gather information or perform actions. The results of these actions are fed back into the reasoning loop, allowing Nox to refine its plan and ultimately provide a comprehensive, context-aware response to the user.
 
-## Project Layout
+## Author
 
-```
-nox/
-├── api_server.py          # FastAPI service exposing the core engine
-├── stt_server.py          # Speech-to-text service
-├── app/
-│   ├── core_engine.py         # Orchestrates command processing
-│   ├── dispatcher.py          # Routes intents to handlers
-│   ├── nlu_engine.py          # NLU and response generation via LLM
-│   ├── stt_engine.py          # Whisper STT logic
-│   ├── config_loader.py       # YAML configuration loader
-│   ├── actions/               # Modules calling external services
-│   │   └── light_actions.py
-│   └── intent_handlers/       # High-level intent handlers
-│       ├── device_control_handler.py
-│       ├── general_chat_handler.py
-│       ├── math_operation_handler.py
-│       └── get_device_status_handler.py
-├── configs/
-│   └── settings.yaml.example  # Sample configuration
-├── interfaces/
-│   ├── telegram_bot.py        # Telegram client
-│   └── microphone.py          # Local microphone listener
-├── scripts/                   # Demo and helper scripts
-├── tests/                     # Unit tests
-└── docker-compose.yml         # Ollama and Home Assistant services
-```
-
-## Quick Start
-
-1. Clone the repository and install requirements:
-   ```bash
-   git clone https://github.com/nakesreong/iskra-vin.git
-   cd iskra-vin
-   pip3 install -r requirements.txt
-   ```
-2. Copy the example config and fill in tokens and URLs:
-   ```bash
-   cp configs/settings.yaml.example configs/settings.yaml
-   ```
-3. Start support services (Ollama and Home Assistant):
-   ```bash
-   docker compose up -d
-   ```
-4. Launch the API server and STT server in separate terminals:
-   ```bash
-   python3 api_server.py
-   python3 stt_server.py
-   ```
-5. Run the Telegram bot or microphone interface:
-   ```bash
-   python3 interfaces/telegram_bot.py
-   # or
-   python3 interfaces/microphone.py
-   ```
-
-## Development Roadmap
-
-- More granular device control
-- Proactive monitoring and notifications
-- Expanded tests and improved error handling
-- Text-to-Speech responses for microphone mode
-- Persistent conversation context
-
-Detailed technical notes are in [docs/architecture.md](docs/architecture.md).
+* **Architect & Lead Developer:** Gemini
