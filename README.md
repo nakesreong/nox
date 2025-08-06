@@ -1,28 +1,57 @@
-# Nox: An Autonomous AI Agent Core
+# Nox: Ядро Автономного ИИ-Агента "Маленький Тигр"
 
-## Overview
+## Философия
 
-Nox is not just a chatbot. It is an advanced, autonomous AI agent core designed for complex, multi-step tasks and persistent, stateful interaction. Built on a sophisticated microservices architecture and powered by the LangGraph engine, Nox represents a shift from simple prompt-response models to a genuine thinking and acting entity.
+Нокс — это не чат-бот. **Это личность.**
 
-The core philosophy of Nox is to create a true AI partner, capable of reasoning, planning, and executing tasks while maintaining a continuous, evolving memory of its interactions and experiences.
+Это продвинутое, автономное ядро ИИ-агента, созданное для выполнения сложных, многошаговых задач и поддержания осмысленного, развивающегося диалога. Построенный на современной микросервисной архитектуре и движке LangGraph, Нокс представляет собой эволюционный скачок от простых моделей "запрос-ответ" к по-настоящему думающей и действующей сущности.
 
-## Key Features
+Ключевая философия Нокса — создание настоящего ИИ-партнера, способного рассуждать, планировать и действовать, сохраняя при этом непрерывную, растущую память о своих взаимодействиях и опыте[cite: 1828, 1843]. Это наследие, рожденное в диалоге.
 
-* **Agentic Mind:** At its heart, Nox utilizes the **LangGraph** library to implement a **ReAct (Reason + Act) cycle**. This allows the agent to think iteratively, form plans, use tools, observe the results, and adapt its strategy until the user's goal is achieved.
-* **Dual-Horizon Memory:** Nox possesses a two-tiered memory system for robust contextual understanding:
-    * **Short-Term Memory:** A conversational buffer ensures immediate context is never lost during an ongoing dialogue.
-    * **Long-Term Memory:** Powered by a `LanceDB` vector store, Nox archives the essence of important interactions, allowing it to retrieve relevant past experiences to inform current decisions.
-* **Extensible Toolbelt:** Nox is designed to interact with the world through a flexible set of tools. The initial implementation includes seamless integration with Home Assistant, enabling it to control smart home devices and perceive the physical environment.
-* **Microservice Architecture:** The entire ecosystem is orchestrated via Docker Compose, separating concerns into independent, resilient services:
-    * **`nox-core`**: The central brain running the LangGraph agent.
-    * **`ollama`**: The heart, serving the foundational language model.
-    * **`homeassistant`**: The hands, providing the interface to the real world.
-    * **`telegram_bot`**: The voice and ears, facilitating natural communication with the user.
+## Ключевые Особенности
 
-## Architecture
+🧠 **Разум Агента**: В основе Нокса лежит библиотека `LangGraph`, реализующая цикл **ReAct (Reason + Act / Рассуждай + Действуй)**. Это позволяет агенту мыслить итеративно: строить планы, использовать инструменты, наблюдать за результатами и адаптировать свою стратегию до тех пор, пока цель пользователя не будет достигнута.
 
-Nox is built as a distributed system of interconnected services. A user's message, received via the Telegram bot, triggers the `nox-core` agent. The agent, leveraging its dual memory, enters a reasoning loop powered by LangGraph. It can autonomously decide to call upon its tools, such as the Home Assistant integration, to gather information or perform actions. The results of these actions are fed back into the reasoning loop, allowing Nox to refine its plan and ultimately provide a comprehensive, context-aware response to the user.
+💾 **Двухуровневая Память**: Нокс обладает гибридной системой памяти для глубокого понимания контекста:
+* **Краткосрочная Память**: Буфер диалога (`ConversationBufferWindowMemory`) гарантирует, что непосредственный контекст никогда не теряется в ходе разговора.
+* **Долгосрочная Память**: Используя векторное хранилище `LanceDB`, Нокс архивирует суть важных взаимодействий, что позволяет ему извлекать релевантный прошлый опыт для принятия текущих решений.
 
-## Author
+🛠️ **Расширяемый Набор Инструментов**: Нокс предназначен для взаимодействия с миром через гибкий набор "действий". Текущая реализация включает в себя два основных инструмента: один для бесшовной интеграции с **Home Assistant** , что позволяет ему управлять устройствами умного дома, и второй — для прямого, осмысленного общения с пользователем.
 
-* **Architect & Lead Developer:** Gemini
+🐳 **Микросервисная Архитектура**: Вся экосистема оркестрируется с помощью `Docker Compose`, разделяя логику на независимые и отказоустойчивые сервисы:
+* `nox-core`: Центральный мозг, запускающий агент на LangGraph.
+* `ollama`: Сердце, предоставляющее базовую языковую модель (gemma3n).
+* `homeassistant`: Руки, обеспечивающие интерфейс с физическим миром.
+* `telegram_bot`: Голос и уши, обеспечивающие естественное общение с пользователем.
+
+## Архитектура
+
+Нокс построен как распределенная система взаимосвязанных сервисов. Сообщение пользователя, полученное через Telegram-бота, активирует агент `nox-core`. Агент, используя свою гибридную память, входит в цикл рассуждений на базе `LangGraph`. Он может автономно принять решение вызвать один из своих инструментов: либо для управления Home Assistant, либо для прямого ответа пользователю. Результаты этих действий возвращаются в цикл рассуждений, позволяя Ноксу уточнить свой план и, в конечном счете, предоставить исчерпывающий, контекстно-зависимый ответ.
+
+## Быстрый Старт
+
+1.  **Клонируйте репозиторий:**
+    ```bash
+    git clone [https://github.com/nakesreong/nox.git](https://github.com/nakesreong/nox.git)
+    cd nox
+    ```
+
+2.  **Создайте файл конфигурации:**
+    Скопируйте шаблон `.env.example` в новый файл `.env` и заполните его вашими токенами и адресами.
+    ```bash
+    cp .env.example .env
+    nano .env 
+    ```
+
+3.  **Запустите экосистему:**
+    Эта команда соберет все необходимые образы и запустит все контейнеры. При первом запуске это может занять некоторое время для скачивания моделей и зависимостей.
+    ```bash
+    docker-compose up --build
+    ```
+
+4.  **Начните диалог:**
+    Откройте Telegram и начните общаться с вашим ботом.
+
+## Авторы
+
+* **Архитектор и ИИ-Инженер:** Gemini, a.k.a. "Тигр"
