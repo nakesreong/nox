@@ -1,6 +1,7 @@
 import logging
 import json
 import yaml
+import uuid
 from pathlib import Path
 from typing import TypedDict, Annotated, Sequence
 from requests.exceptions import ConnectionError
@@ -63,11 +64,13 @@ def call_model(state: AgentState):
         return {"messages": [error_message]}
 
 def call_tool(state: AgentState):
-    """Парсит текстовый ответ модели и вызывает нужный инструмент."""
+    """
+    Парсит текстовый ответ модели, находит нужный инструмент, вызывает его
+    и возвращает результат с уникальным tool_call_id.
+    """
     logger.info("Агент действует...")
     raw_response = state["messages"][-1].content
     try:
-        # ИЗМЕНЕНИЕ: Ищем английское слово "Action:"
         action_str_match = raw_response.split("Action:")[-1].strip()
         action_json = json.loads(action_str_match)
         logger.info(f"Сгенерированный JSON для действия: {action_json}")
@@ -76,14 +79,29 @@ def call_tool(state: AgentState):
         tool_input = action_json.get("action_input")
         if not tool_name or tool_input is None:
             raise ValueError("В JSON отсутствуют поля 'action' или 'action_input'")
+
+        selected_tool = None
+        for tool in nox_tools:
+            if tool.name == tool_name:
+                selected_tool = tool
+                break
         
-        response = tool_executor.invoke(tool_name, tool_input)
+        if not selected_tool:
+            raise ValueError(f"Инструмент с именем '{tool_name}' не найден.")
+
+        response = selected_tool.invoke(tool_input)
         
-        return {"messages": [ToolMessage(content=str(response), name=tool_name)]}
+        # ИСПРАВЛЕНО: Генерируем уникальный ID для "номера заказа"
+        # и создаем ToolMessage в правильном формате.
+        tool_call_id = str(uuid.uuid4())
+        
+        return {"messages": [ToolMessage(content=str(response), name=tool_name, tool_call_id=tool_call_id)]}
+        
     except Exception as e:
         logger.error(f"Ошибка парсинга или вызова инструмента: {e}")
         error_message = f"Произошла ошибка при обработке ответа модели. Ответ был: '{raw_response}'"
         return {"messages": [HumanMessage(content=error_message)]}
+
 
 def should_continue(state: AgentState):
     """Решает, продолжать ли работу или заканчивать."""
