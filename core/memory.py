@@ -1,7 +1,8 @@
 import lancedb
 import logging
 from typing import List
-from langchain_core.messages import AIMessage, HumanMessage
+# Добавляем ToolMessage в импорты
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain.memory import ConversationBufferWindowMemory
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import LanceDB
@@ -13,15 +14,27 @@ logger = logging.getLogger(__name__)
 
 def format_history_for_gemma3n(messages: List) -> str:
     """
-    Преобразует список сообщений из памяти LangChain в формат,
+    Преобразует список сообщений (включая Human, AI и Tool) в формат,
     совместимый с чат-шаблоном модели gemma3n.
-    Это критически важная функция для корректной работы с моделью.
     """
     formatted_lines = []
     for msg in messages:
-        role = "user" if isinstance(msg, HumanMessage) else "model"
-        # Формируем строку в соответствии с шаблоном <start_of_turn>...
-        formatted_lines.append(f"<start_of_turn>{role}\n{msg.content}<end_of_turn>")
+        if isinstance(msg, HumanMessage):
+            role = "user"
+            content = msg.content
+        elif isinstance(msg, AIMessage):
+            role = "model"
+            content = msg.content
+        elif isinstance(msg, ToolMessage):
+            # Gemma не имеет роли "tool", поэтому мы представляем результат
+            # инструмента как часть "модельного" мира, с которым она работает.
+            role = "model"
+            content = f"РЕЗУЛЬТАТ ВЫПОЛНЕНИЯ ИНСТРУМЕНТА:\n{msg.content}"
+        else:
+            # Пропускаем любые другие типы сообщений, чтобы не сломать формат
+            continue
+        
+        formatted_lines.append(f"<start_of_turn>{role}\n{content}<end_of_turn>")
     return "\n".join(formatted_lines)
 
 def get_short_term_memory(k_value: int = 5) -> ConversationBufferWindowMemory:

@@ -69,7 +69,7 @@ async def handle_command(request: CommandRequest):
     inputs = {"messages": [HumanMessage(content=request.text)], "chat_history": chat_history}
     
     final_output = None
-    async for output in agent_graph.astream(inputs, {"recursion_limit": 5}):
+    async for output in agent_graph.astream(inputs, {"recursion_limit": 15}):
         for key, value in output.items():
             logger.info(f"--- Узел графа: {key} ---")
             if value.get("messages"):

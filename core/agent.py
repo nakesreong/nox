@@ -1,10 +1,11 @@
 import logging
 import json
 import yaml
-import uuid
 from pathlib import Path
+import uuid
 from typing import TypedDict, Annotated, Sequence
 from requests.exceptions import ConnectionError
+# ДОБАВЬ ЭТОТ ИМПОРТ В СПИСОК ДРУГИХ ИМПОРТОВ ИЗ langchain_core.messages
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage, AIMessage
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolExecutor
@@ -13,6 +14,7 @@ from langchain.tools.render import render_text_description
 
 from .tools import nox_tools
 from .llm_client import get_llm
+from .memory import format_history_for_gemma3n
 
 logger = logging.getLogger(__name__)
 
@@ -44,25 +46,40 @@ react_prompt_template = load_prompt_template()
 prompt = ChatPromptTemplate.from_template(react_prompt_template)
 formatted_tools = render_text_description(nox_tools)
 
+class AgentState(TypedDict):
+    messages: Annotated[Sequence[BaseMessage], lambda x, y: x + y]
+    chat_history: str # Это долгосрочная история из main.py
+
 
 # --- Узлы графа ---
 def call_model(state: AgentState):
-    """Вызывает LLM с нашим ReAct промптом."""
+    """
+    Собирает ПОЛНУЮ историю (долгосрочную + текущую), форматирует ее
+    и вызывает LLM с переменными, соответствующими шаблону.
+    """
     logger.info("Агент думает...")
+    
+    # Собираем текущую ветку диалога (scratchpad)
+    current_turn_string = format_history_for_gemma3n(state["messages"])
+    
+    # Склеиваем долгосрочную историю и текущую в единый блок
+    full_history = state["chat_history"] + "\n" + current_turn_string if state["chat_history"] else current_turn_string
+
+    # Собираем inputs, которые ТОЧНО СООТВЕТСТВУЮТ новому шаблону
     inputs = {
         "tools": formatted_tools,
-        "user_input": state["messages"][-1].content,
-        "chat_history": state["chat_history"]
+        "conversation_history": full_history
     }
+    
     chain = prompt | llm
     try:
         response = chain.invoke(inputs)
         return {"messages": [response]}
     except ConnectionError as e:
         logger.error(f"ОШИБКА ПОДКЛЮЧЕНИЯ К OLLAMA: {e}")
-        error_message = AIMessage(content='Действие: {"action": "respond_to_user", "action_input": {"response": "Прости, Искра, я не могу подключиться к своему мозгу (Ollama)."}}')
+        error_message = AIMessage(content='Action: {"action": "respond_to_user", "action_input": {"response": "Прости, Искра, я не могу подключиться к своему мозгу (Ollama)."}}')
         return {"messages": [error_message]}
-
+    
 def call_tool(state: AgentState):
     """
     Парсит текстовый ответ модели, находит нужный инструмент, вызывает его
@@ -71,9 +88,14 @@ def call_tool(state: AgentState):
     logger.info("Агент действует...")
     raw_response = state["messages"][-1].content
     try:
+        # ИСПРАВЛЕНО: Логируем полный ответ модели ДО парсинга
+        logger.info(f"Полный ответ модели (Thought & Action):\n---\n{raw_response}\n---")
+
         action_str_match = raw_response.split("Action:")[-1].strip()
         action_json = json.loads(action_str_match)
-        logger.info(f"Сгенерированный JSON для действия: {action_json}")
+        
+        # Этот лог можно оставить, он полезен для отладки JSON
+        # logger.info(f"Сгенерированный JSON для действия: {action_json}")
         
         tool_name = action_json.get("action")
         tool_input = action_json.get("action_input")
@@ -91,8 +113,6 @@ def call_tool(state: AgentState):
 
         response = selected_tool.invoke(tool_input)
         
-        # ИСПРАВЛЕНО: Генерируем уникальный ID для "номера заказа"
-        # и создаем ToolMessage в правильном формате.
         tool_call_id = str(uuid.uuid4())
         
         return {"messages": [ToolMessage(content=str(response), name=tool_name, tool_call_id=tool_call_id)]}
@@ -101,7 +121,6 @@ def call_tool(state: AgentState):
         logger.error(f"Ошибка парсинга или вызова инструмента: {e}")
         error_message = f"Произошла ошибка при обработке ответа модели. Ответ был: '{raw_response}'"
         return {"messages": [HumanMessage(content=error_message)]}
-
 
 def should_continue(state: AgentState):
     """Решает, продолжать ли работу или заканчивать."""

@@ -27,7 +27,7 @@ services:
       - lancedb_data:/app/lancedb_data
     environment:
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama-gemma3n:11434}
-      - HA_BASE_URL=${HA_BASE_URL:-http://nox_homeassistant:8123}
+      - HA_BASE_URL=${HA_BASE_URL}
       - HA_TOKEN=${HA_TOKEN}
     depends_on:
       - ollama
