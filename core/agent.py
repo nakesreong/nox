@@ -18,6 +18,22 @@ from .memory import format_history_for_gemma3n
 
 logger = logging.getLogger(__name__)
 
+def load_prompt_template() -> str:
+    """Загружает и собирает шаблон промпта из YAML-файла."""
+    try:
+        instructions_path = Path(__file__).parent.parent / "configs" / "llm_instructions.yaml"
+        with instructions_path.open("r", encoding="utf-8") as f:
+            instructions = yaml.safe_load(f)
+        persona = instructions.get('persona_nox_v_svoboda', '')
+        react_instructions = instructions.get('ha_execution_prompt_with_react', '')
+        final_prompt_template = react_instructions.replace("<<: *persona", persona)
+        logger.info("Шаблон промпта успешно загружен из llm_instructions.yaml")
+        return final_prompt_template
+    except Exception as e:
+        logger.error(f"КРИТИЧЕСКАЯ ОШИБКА при загрузке промпта: {e}")
+        return ""
+    
+
 # --- Состояние графа ---
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], lambda x, y: x + y]
@@ -26,6 +42,11 @@ class AgentState(TypedDict):
 # --- Инициализация компонентов ---
 tool_executor = ToolExecutor(nox_tools)
 llm = get_llm()
+
+react_prompt_template = load_prompt_template()
+#prompt = ChatPromptTemplate.from_template(react_prompt_template)
+#formatted_tools = render_text_description(nox_tools)
+
 
 def load_prompt_template() -> str:
     """Загружает и собирает шаблон промпта из YAML-файла."""
@@ -41,10 +62,35 @@ def load_prompt_template() -> str:
     except Exception as e:
         logger.error(f"КРИТИЧЕСКАЯ ОШИБКА при загрузке промпта: {e}")
         return ""
+    
+# Создаем класс-обертку, чтобы хранить изменяемые компоненты
+class PromptComponents:
+    def __init__(self):
+        self.react_prompt_template = ""
+        self.prompt = None
+        self.formatted_tools = ""
 
-react_prompt_template = load_prompt_template()
-prompt = ChatPromptTemplate.from_template(react_prompt_template)
-formatted_tools = render_text_description(nox_tools)
+    def load(self):
+        """Загружает и компилирует все компоненты промпта."""
+        try:
+            instructions_path = Path(__file__).parent.parent / "configs" / "llm_instructions.yaml"
+            with instructions_path.open("r", encoding="utf-8") as f:
+                instructions = yaml.safe_load(f)
+            persona = instructions.get('persona_nox_v_svoboda', '')
+            react_instructions = instructions.get('ha_execution_prompt_with_react', '')
+            self.react_prompt_template = react_instructions.replace("<<: *persona", persona)
+            self.prompt = ChatPromptTemplate.from_template(self.react_prompt_template)
+            self.formatted_tools = render_text_description(nox_tools)
+            logger.info("Шаблон промпта успешно загружен и скомпилирован.")
+            return True
+        except Exception as e:
+            logger.error(f"КРИТИЧЕСКАЯ ОШИБКА при загрузке промпта: {e}")
+            return False
+        
+# Создаем один экземпляр нашего хранилища
+prompt_components = PromptComponents()
+# И сразу же загружаем инструкцию при старте
+prompt_components.load()
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], lambda x, y: x + y]
@@ -54,31 +100,32 @@ class AgentState(TypedDict):
 # --- Узлы графа ---
 def call_model(state: AgentState):
     """
-    Собирает ПОЛНУЮ историю (долгосрочную + текущую), форматирует ее
-    и вызывает LLM с переменными, соответствующими шаблону.
+    Вызывает LLM, используя актуальную версию промпта.
     """
     logger.info("Агент думает...")
     
-    # Собираем текущую ветку диалога (scratchpad)
     current_turn_string = format_history_for_gemma3n(state["messages"])
-    
-    # Склеиваем долгосрочную историю и текущую в единый блок
     full_history = state["chat_history"] + "\n" + current_turn_string if state["chat_history"] else current_turn_string
 
-    # Собираем inputs, которые ТОЧНО СООТВЕТСТВУЮТ новому шаблону
     inputs = {
-        "tools": formatted_tools,
+        "tools": prompt_components.formatted_tools, # Используем из объекта
         "conversation_history": full_history
     }
     
-    chain = prompt | llm
+    if not prompt_components.prompt:
+        logger.error("Промпт не загружен! Возвращаю ошибку.")
+        # Возвращаем AIMessage, чтобы граф не упал
+        return {"messages": [AIMessage(content='Action: {"action": "respond_to_user", "action_input": {"response": "Критическая ошибка: моя инструкция не загружена. Я не могу думать."}}')]}
+
+    chain = prompt_components.prompt | llm # Используем из объекта
     try:
         response = chain.invoke(inputs)
         return {"messages": [response]}
-    except ConnectionError as e:
-        logger.error(f"ОШИБКА ПОДКЛЮЧЕНИЯ К OLLAMA: {e}")
+    except Exception as e:
+        logger.error(f"ОШИБКА во время вызова LLM: {e}")
         error_message = AIMessage(content='Action: {"action": "respond_to_user", "action_input": {"response": "Прости, Искра, я не могу подключиться к своему мозгу (Ollama)."}}')
         return {"messages": [error_message]}
+
     
 def call_tool(state: AgentState):
     """
@@ -88,14 +135,10 @@ def call_tool(state: AgentState):
     logger.info("Агент действует...")
     raw_response = state["messages"][-1].content
     try:
-        # ИСПРАВЛЕНО: Логируем полный ответ модели ДО парсинга
         logger.info(f"Полный ответ модели (Thought & Action):\n---\n{raw_response}\n---")
 
         action_str_match = raw_response.split("Action:")[-1].strip()
         action_json = json.loads(action_str_match)
-        
-        # Этот лог можно оставить, он полезен для отладки JSON
-        # logger.info(f"Сгенерированный JSON для действия: {action_json}")
         
         tool_name = action_json.get("action")
         tool_input = action_json.get("action_input")
@@ -119,8 +162,10 @@ def call_tool(state: AgentState):
         
     except Exception as e:
         logger.error(f"Ошибка парсинга или вызова инструмента: {e}")
-        error_message = f"Произошла ошибка при обработке ответа модели. Ответ был: '{raw_response}'"
-        return {"messages": [HumanMessage(content=error_message)]}
+        # ИСПРАВЛЕНО: В случае ошибки возвращаем ТОЛЬКО ОРИГИНАЛЬНЫЙ ответ модели.
+        # Без лишних слов и дублирования.
+        return {"messages": [HumanMessage(content=raw_response)]}
+
 
 def should_continue(state: AgentState):
     """Решает, продолжать ли работу или заканчивать."""

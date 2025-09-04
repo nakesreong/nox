@@ -27,32 +27,32 @@ services:
       - lancedb_data:/app/lancedb_data
     environment:
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama-gemma3n:11434}
-      - HA_BASE_URL=${HA_BASE_URL}
-      - HA_TOKEN=${HA_TOKEN}
-    depends_on:
-      - ollama
+      - HA_URL=${HA_URL}
+      - HA_TOK=${HA_TOK}
+#    depends_on:
+#      - ollama
       # homeassistant больше не в depends_on, т.к. мы можем ходить на него по внешнему IP
     restart: unless-stopped
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama-gemma3n
-    networks:
-      - nox_network
-    volumes:
-      - ollama_data:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    environment:
-      - OLLAMA_KEEP_ALIVE=-1
-    ports:
-      - "11434:11434"
-    restart: unless-stopped
+  #ollama:
+  #  image: ollama/ollama:latest
+  #  container_name: ollama-gemma3n
+  #  networks:
+  #    - nox_network
+  #  volumes:
+  #    - ollama_data:/root/.ollama
+  #  deploy:
+  #    resources:
+  #      reservations:
+  #        devices:
+  #          - driver: nvidia
+  #            count: 1
+  #            capabilities: [gpu]
+  #  environment:
+  #    - OLLAMA_KEEP_ALIVE=-1
+  #  ports:
+  #    - "11434:11434"
+  #  restart: unless-stopped
 
   # СЕРВИС LANCEDB ПОЛНОСТЬЮ УДАЛЕН
 

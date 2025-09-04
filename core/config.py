@@ -7,11 +7,11 @@ class Settings(BaseSettings):
     Класс для загрузки и валидации настроек из переменных окружения.
     """
     ollama_base_url: str = Field(..., env="OLLAMA_BASE_URL")
-    ha_base_url: str = Field(..., env="HA_BASE_URL")
-    ha_token: str = Field(..., env="HA_TOKEN")
+    ha_url: str = Field(..., env="HA_URL")
+    ha_tok: str = Field(..., env="HA_TOK")
     
     # ИЗМЕНЕНИЕ: Теперь читаем модель из .env
-    ollama_model: str = Field(default="gemma3n:e2b", env="OLLAMA_MODEL")
+    ollama_model: str = Field(default="gemma3n:e4b", env="OLLAMA_MODEL")
     
     lancedb_path: str = "/app/lancedb_data"
 

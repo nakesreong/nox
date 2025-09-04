@@ -9,6 +9,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from core.config import settings
 from core.memory import get_short_term_memory, format_history_for_gemma3n
 from core.agent import agent_graph
+from core.agent import agent_graph, prompt_components
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ def ensure_model_is_available():
 ensure_model_is_available()
 
 logger.info(f"Ollama URL: {settings.ollama_base_url}")
-logger.info(f"Home Assistant URL: {settings.ha_base_url}")
+logger.info(f"Home Assistant URL: {settings.ha_url}")
 
 user_conversations = {}
 logger.info("Все компоненты успешно инициализированы. Нокс готов к работе.")
@@ -57,6 +58,21 @@ class CommandRequest(BaseModel):
 @app.get("/", summary="Проверка статуса API")
 def read_root():
     return {"status": "Nox 'Little Tiger' is alive and hunting."}
+
+# НОВЫЙ ЭНДПОИНТ ДЛЯ ПЕРЕЗАГРУЗКИ
+@app.post("/reload_instructions", summary="Перезагружает LLM инструкции из файла")
+def reload_instructions():
+    """
+    Заставляет агента перечитать файл llm_instructions.yaml на лету.
+    """
+    logger.info("Получен запрос на перезагрузку инструкций...")
+    success = prompt_components.load()
+    if success:
+        logger.info("Инструкции успешно перезагружены.")
+        return {"status": "success", "message": "Instructions reloaded successfully."}
+    else:
+        logger.error("Не удалось перезагрузить инструкции.")
+        raise HTTPException(status_code=500, detail="Failed to reload instructions. Check logs for details.")
 
 @app.post("/command/telegram", summary="Обработка команды")
 async def handle_command(request: CommandRequest):
